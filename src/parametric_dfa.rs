@@ -82,13 +82,13 @@ impl ParametricDFA {
             let default_successor = self.transition(state, 0u32).apply(state);
             let default_successor_id = state_index.get_or_allocate(&default_successor);
             let distance = self.distance(state, query_len);
-            dfa_builder.add_state(state_id, distance, default_successor_id);
 
+            let mut state_builder = dfa_builder.add_state(state_id, distance, default_successor_id);
             for &(chr, characteristic_vec) in alphabet.iter() {
                 let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                 let dest_state: ParametricState = self.transition(state, chi).apply(state);
                 let dest_state_id = state_index.get_or_allocate(&dest_state);
-                dfa_builder.add_transition(state_id, chr, dest_state_id);
+                state_builder.add_transition(chr, dest_state_id);
             }
         }
 

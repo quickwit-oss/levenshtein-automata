@@ -23,6 +23,7 @@ impl DFA {
     pub fn eval<B: AsRef<[u8]>>(&self, text: B) -> Distance {
         let mut state = self.initial_state();
         for &b in text.as_ref() {
+            let from_state = state;
             state = self.transition(state, b);
         }
         self.distance(state)
@@ -46,18 +47,59 @@ impl DFA {
     }
 }
 
+
+
+
+pub struct DFAStateBuilder<'a> {
+    index: &'a mut Index<Utf8State>,
+    transitions: &'a mut Vec<[u32; 256]>,
+    state_id: u32,
+    default_successor: u32
+}
+
+impl<'a> DFAStateBuilder<'a> {
+
+    fn get_or_allocate(&mut self, state: &Utf8State) -> u32 {
+        let state_id = self.index.get_or_allocate(state);
+        let state_id_usize = state_id as usize;
+        state_id
+    }
+
+    fn add_transition_id(&mut self, from_state_id: u32, b: u8, to_state_id: u32) {
+        if from_state_id as usize >= self.transitions.len() {
+            self.transitions.resize(from_state_id as usize + 1, [0u32; 256]);
+        }
+        self.transitions[from_state_id as usize][b as usize] = to_state_id;
+    }
+
+    pub fn add_transition(&mut self, chr: char, to_state_id: u32) {
+        let mut buffer = [0u8; 4];
+        let bytes: &[u8] = chr.encode_utf8(&mut buffer).as_bytes();
+        let mut from_state_id_decoded = self.state_id;
+        for &b in &bytes[..bytes.len() - 1] {
+            let successor_state = Utf8State::Successor(from_state_id_decoded, b);
+            let intermediary_state_id_decoded: u32 = self.get_or_allocate(&successor_state);
+            self.add_transition_id(from_state_id_decoded, b, intermediary_state_id_decoded);
+            from_state_id_decoded = intermediary_state_id_decoded;
+        }
+        let to_state_id_decoded = self.get_or_allocate(&Utf8State::Original(to_state_id));
+        let self_state_id = self.state_id;
+        self.add_transition_id(from_state_id_decoded, bytes[bytes.len() - 1], to_state_id_decoded);
+    }
+}
+
 pub struct DFABuilder {
     index: Index<Utf8State>,
     distances: Vec<Distance>,
     transitions: Vec<[u32; 256]>,
-    initial_state: u32,
-    default_transitions: Vec<u32>
+    initial_state: u32
 }
 
 
 pub fn extract_utf8_len_from_first_byte(b: u8) -> usize {
     cmp::min(4, cmp::max(1, (!b).leading_zeros() as usize))
 }
+
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 enum Utf8State {
@@ -73,7 +115,6 @@ impl DFABuilder {
             index:  Index::with_capacity(capacity),
             distances: Vec::with_capacity(capacity),
             transitions: Vec::with_capacity(capacity),
-            default_transitions: Vec::with_capacity(capacity),
             initial_state: 0u32,
         }
     }
@@ -89,57 +130,65 @@ impl DFABuilder {
             .for_each(|v| *v = to_state_id);
     }
 
-    fn add_transition_id(&mut self, state_id: u32, byte: u8, new_state_id: u32) {
-        self.transitions[state_id as usize][byte as usize] = new_state_id;
-    }
-
-    pub fn add_transition(&mut self, from_state_id: u32, chr: char, to_state_id: u32) {
-        let mut from_state_id_decoded = self.get_or_allocate(&Utf8State::Original(from_state_id));
-        let mut buffer = [0u8; 4];
-        let bytes: &[u8] = chr.encode_utf8(&mut buffer).as_bytes();
-        for &b in &bytes[..bytes.len() - 1] {
-            let intermediary_state_id_decoded: u32 = self.get_or_allocate(&Utf8State::Successor(from_state_id_decoded, b));
-            self.add_transition_id(from_state_id_decoded, b, intermediary_state_id_decoded);
-            from_state_id_decoded = intermediary_state_id_decoded;
-        }
-        let to_state_id_decoded = self.get_or_allocate(&Utf8State::Original(to_state_id));
-        self.add_transition_id(from_state_id_decoded, bytes[bytes.len() - 1], to_state_id_decoded);
-    }
-
-    fn get_or_allocate(&mut self, state: &Utf8State) -> u32 {
-        let state_id = self.index.get_or_allocate(state);
+    pub fn add_state(&mut self, state: u32, distance: Distance, default_successor_orig: u32) -> DFAStateBuilder {
+        let state_id = self.index.get_or_allocate(&Utf8State::Original(state));
         let state_id_usize = state_id as usize;
         if self.distances.len() <= state_id_usize {
             self.transitions.resize(state_id_usize + 1, [0u32; 256]);
             self.distances.resize(state_id_usize + 1, Distance::AtLeast(255u8));
-            self.default_transitions.resize(state_id_usize + 1, 0u32);
         }
-        state_id
-    }
-
-
-    pub fn set_default_transition(&mut self, from_state: u32, to_state: u32) {
-        let predecessor_states = [to_state; 4];
-        for num_bytes in 1..4 {
-            let predecessor_state = Utf8State::Predecessor(to_state, num_bytes as u8);
-            let predecessor_state_id: u32 = self.get_or_allocate(&predecessor_state);
-            self.set_all_successors(predecessor_state_id, predecessor_states[num_bytes - 1]);
-        }
-        for b in 128..256 {
-            let total_num_bytes = extract_utf8_len_from_first_byte(b as u8);
-            self.add_transition_id(from_state, b as u8, predecessor_states[total_num_bytes - 1]);
-        }
-        self.transitions[from_state as usize]
-            .iter_mut()
-            .for_each(|v| *v=to_state);
-
-    }
-
-    pub fn add_state(&mut self, state: u32, distance: Distance, default_successor: u32) {
-        let state_id = self.get_or_allocate(&Utf8State::Original(state.clone()));
         self.distances[state_id as usize] = distance;
-        let default_successor_decoded = self.get_or_allocate(&Utf8State::Original(default_successor));
-        self.set_default_transition(state_id, default_successor_decoded);
+        let mut predecessor_state_id = self.index.get_or_allocate(&Utf8State::Original(default_successor_orig));
+        let mut predecessor_states = [predecessor_state_id; 4];
+
+        {
+            for num_bytes in 1..4 {
+                let predecessor_state = Utf8State::Predecessor(predecessor_state_id, num_bytes as u8);
+                predecessor_state_id = self.index.get_or_allocate(&predecessor_state);
+                predecessor_states[num_bytes] = predecessor_state_id;
+                let succ = predecessor_states[num_bytes - 1];
+                if self.transitions.len() <= predecessor_state_id as usize {
+                    self.distances.resize(predecessor_state_id as usize + 1, Distance::AtLeast(255u8));
+                    self.transitions.resize(predecessor_state_id as usize + 1, [0u32; 256]);
+                }
+                for b in self.transitions[predecessor_state_id as usize].iter_mut() {
+                    *b = succ;
+                }
+            }
+        }
+
+        let default_successor;
+
+        {
+            let transitions = &mut self.transitions[state_id as usize];
+            default_successor = transitions[0];
+            for b in 0..192 {
+                let last_state = predecessor_states[0];
+                transitions[b as usize] = last_state;
+            }
+            for b in 192..224 {
+                let last_state = predecessor_states[1];
+                transitions[b as usize] = last_state;
+            }
+            for b in 224..240 {
+                let last_state = predecessor_states[2];
+                ;
+                transitions[b as usize] = last_state;
+            }
+            for b in 240..256 {
+                let last_state = predecessor_states[3];
+                transitions[b as usize] = last_state;
+            }
+        }
+
+
+
+        DFAStateBuilder {
+            index: &mut self.index,
+            transitions: &mut self.transitions,
+            state_id: state_id,
+            default_successor: default_successor
+        }
     }
 
     pub fn build(self) -> DFA {
@@ -154,38 +203,25 @@ impl DFABuilder {
 #[cfg(test)]
 mod tests {
 
-    use super::extract_utf8_len_from_first_byte;
     use super::DFABuilder;
     use std::char;
     use super::Distance;
-
-    #[test]
-    fn test_extract_utf8_len_from_first_byte() {
-        let mut buffer = [0u8; 5];
-        for codepoint in 0u32..1_114_113u32 {
-            if let Some(chr) = char::from_u32(codepoint) {
-                let s = chr.encode_utf8(&mut buffer).as_bytes();
-                let num_bytes = s.len();
-                assert!(num_bytes <= 4);
-                assert_eq!(extract_utf8_len_from_first_byte(s[0]), num_bytes);
-            }
-        }
-    }
 
 
     #[test]
     fn test_utf8_dfa_builder() {
         let mut dfa_builder = DFABuilder::with_capacity(2);
-        dfa_builder.add_state(0, Distance::Exact(1u8), 1);
-        dfa_builder.add_state(1, Distance::Exact(0u8), 0);
+        dfa_builder
+            .add_state(0, Distance::Exact(1u8), 1);
+        dfa_builder
+            .add_state(1, Distance::Exact(0u8), 0);
         dfa_builder.set_initial_state(1u32);
-        println!("building");
         let dfa = dfa_builder.build();
         let parity_num_letters = |s: &str| {
             dfa.eval(s).to_u8()
         };
-        println!("building2");
 
+        assert_eq!(parity_num_letters("abcdef"), 0u8);
         assert_eq!(parity_num_letters("a"), 1u8);
         assert_eq!(parity_num_letters("aあ"), 0u8);
         assert_eq!(parity_num_letters("❤"), 1u8);

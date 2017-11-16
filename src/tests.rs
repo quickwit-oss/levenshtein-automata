@@ -22,7 +22,6 @@ fn test_levenshtein_nfa_util(left: &str, right: &str) {
 
 
 fn test_symmetric(lev: &LevenshteinNFA, left: &str, right: &str, expected: Distance) {
-    println!("left {} right {}", left, right);
     assert_eq!(lev.compute_distance(left, right), expected);
     assert_eq!(lev.compute_distance(right, left), expected);
 }
@@ -182,7 +181,6 @@ fn test_simple() {
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_dfa(q);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
-    assert_eq!(dfa.eval("abcdef"), Distance::Exact(0u8));
     assert_eq!(dfa.eval("abcdf"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("abcdgf"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("abccdef"), Distance::Exact(1u8));

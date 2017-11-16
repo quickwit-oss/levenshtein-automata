@@ -52,9 +52,7 @@ fn bench_build_dfa_distance2_with_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(2, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     b.iter(|| {
-        for i in 0..1000 {
-            let _dfa = parametric_dfa.build_dfa("Levenshtein");
-        }
+        let _dfa = parametric_dfa.build_dfa("Levenshtein");
     });
 }
 
