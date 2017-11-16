@@ -1,7 +1,15 @@
-use super::parametric_dfa::compute_characteristic_vector;
-use std::mem;
 use std::cmp::Ordering;
 
+#[cfg(test)]
+pub fn compute_characteristic_vector(query: &[char], c: char) -> u64 {
+    let mut chi = 0u64;
+    for i in 0..query.len() {
+        if query[i] == c {
+            chi |= 1u64 << i;
+        }
+    }
+    chi
+}
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct MultiState {
@@ -127,17 +135,10 @@ fn dist(left: u32, right: u32) -> u32 {
 
 impl LevenshteinNFA {
 
-    pub fn levenshtein(max_distance: u8) -> LevenshteinNFA {
+    pub fn levenshtein(max_distance: u8, transposition: bool) -> LevenshteinNFA {
         LevenshteinNFA {
             max_distance: max_distance,
-            damerau: false
-        }
-    }
-
-    pub fn damerau_levenshtein(max_distance: u8) -> LevenshteinNFA {
-        LevenshteinNFA {
-            max_distance: max_distance,
-            damerau: true
+            damerau: transposition
         }
     }
 
@@ -166,7 +167,9 @@ impl LevenshteinNFA {
         multistate
     }
 
+    #[cfg(test)]
     pub fn compute_distance(&self, query: &str, other: &str) -> Distance {
+        use std::mem;
         let query_chars: Vec<char> = query.chars().collect();
         let mut current_state = self.initial_states();
         let mut next_state = MultiState::empty();
@@ -180,8 +183,6 @@ impl LevenshteinNFA {
     }
 
     fn simple_transition(&self, state: NFAState, symbol: u64, multistate: &mut MultiState) {
-        let max_multistate_diameter = self.multistate_diameter();
-
         if state.distance < self.max_distance {
             // apparently we still have room to
             // make mistakes.
@@ -200,8 +201,6 @@ impl LevenshteinNFA {
                 in_transpose: false,
             });
 
-            let max_diameter = self.multistate_diameter();
-
             for d in 1u8..self.max_distance + 1u8 - state.distance {
                 if extract_bit(symbol, d) {
                     // for d > 0, as many deletion and character match
@@ -211,6 +210,14 @@ impl LevenshteinNFA {
                         in_transpose: false,
                     });
                 }
+            }
+
+            if self.damerau && extract_bit(symbol, 1) {
+                multistate.add_state(NFAState {
+                    offset: state.offset,
+                    distance: state.distance + 1,
+                    in_transpose: true,
+                });
             }
         }
         if extract_bit(symbol, 0) {
@@ -230,17 +237,9 @@ impl LevenshteinNFA {
                 });
             }
         }
-
-        if self.damerau && extract_bit(symbol, 1) {
-            multistate.add_state(NFAState {
-                offset: state.offset,
-                distance: state.distance + 1,
-                in_transpose: true,
-            });
-        }
     }
 
-    pub fn transition(&self,
+    pub(crate) fn transition(&self,
                       current_state: &MultiState,
                       dest_state: &mut MultiState,
                       shifted_chi_vector: u64) {
@@ -250,6 +249,7 @@ impl LevenshteinNFA {
             let shifted_chi_vector = (shifted_chi_vector >> state.offset as usize) & mask;
             self.simple_transition(state, shifted_chi_vector, dest_state);
         }
+        dest_state.states.sort();
     }
 }
 
@@ -261,15 +261,6 @@ pub struct NFAState {
 }
 
 impl NFAState {
-
-    fn move_left(&self, step: u32) -> Self {
-        NFAState {
-            offset: self.offset - step,
-            distance: self.distance,
-            in_transpose: self.in_transpose
-        }
-    }
-
     fn imply(&self, other: NFAState) -> bool {
         let tranpose_imply =  self.in_transpose | !other.in_transpose;
         let delta_offset: u32 =

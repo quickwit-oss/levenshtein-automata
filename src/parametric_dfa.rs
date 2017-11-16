@@ -1,32 +1,31 @@
-use std::collections::HashMap;
-use std::hash::Hash;
+use super::dfa::{DFA, DFABuilder};
+use super::Index;
 use super::levenshtein_nfa::Distance;
 use super::levenshtein_nfa::{LevenshteinNFA, MultiState};
+use super::alphabet::Alphabet;
 
-#[derive(Clone, Copy, Debug)]
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ParametricState {
     shape_id: u32,
     offset: u32,
 }
 
 impl ParametricState {
+    fn empty() -> ParametricState {
+        ParametricState {
+            shape_id: 0u32,
+            offset: 0u32
+        }
+    }
     fn is_dead_end(&self) -> bool {
         self.shape_id == 0
     }
 }
 
-pub fn compute_characteristic_vector(query: &[char], c: char) -> u64 {
-    let mut chi = 0u64;
-    for i in 0..query.len() {
-        if query[i] == c {
-            chi |= 1u64 << i;
-        }
-    }
-    chi
-}
 
 #[derive(Clone, Copy)]
-struct Transition {
+pub struct Transition {
     dest_shape_id: u32,
     delta_offset: u32,
 }
@@ -41,12 +40,11 @@ impl Transition {
 }
 
 pub struct ParametricDFA {
-    transition_stride: usize,
-    accept_stride: usize,
     distance: Vec<u8>,
-    max_distance: u8,
     transitions: Vec<Transition>,
-    chi_mask: u64,
+    max_distance: u8,
+    transition_stride: usize,
+    diameter: usize,
 }
 
 impl ParametricDFA {
@@ -58,12 +56,57 @@ impl ParametricDFA {
         }
     }
 
+    pub fn num_states(&self) -> usize {
+        self.transitions.len() / self.transition_stride
+    }
+
+    pub fn build_dfa(&self, query: &str) -> DFA {
+        let num_states = self.num_states() * (query.len() + 1);
+        let mut state_index: Index<ParametricState> = Index::with_capacity(num_states);
+
+        let query_chars: Vec<char> = query.chars().collect();
+        let query_len = query_chars.len();
+        let alphabet = Alphabet::for_query_chars(query_chars);
+
+        state_index.get_or_allocate(&ParametricState::empty());
+        let initial_state_id = state_index.get_or_allocate(&ParametricDFA::initial_state());
+
+        let mut dfa_builder = DFABuilder::with_capacity(num_states);
+        let mask = (1 << self.diameter) - 1;
+
+        for state_id in 0.. {
+            if state_id == state_index.len() {
+                break;
+            }
+            let state = *state_index.get_from_id(state_id);
+            let default_successor = self.transition(state, 0u32).apply(state);
+            let default_successor_id = state_index.get_or_allocate(&default_successor);
+            let distance = self.distance(state, query_len);
+            dfa_builder.add_state(state_id, distance, default_successor_id);
+
+            for &(chr, characteristic_vec) in alphabet.iter() {
+                let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
+                let dest_state: ParametricState = self.transition(state, chi).apply(state);
+                let dest_state_id = state_index.get_or_allocate(&dest_state);
+                dfa_builder.add_transition(state_id, chr, dest_state_id);
+            }
+        }
+
+        dfa_builder.set_initial_state(initial_state_id);
+        dfa_builder.build()
+    }
+
     // only for debug
+    #[cfg(test)]
     pub fn compute_distance(&self, left: &str, right: &str) -> Distance {
+        use super::levenshtein_nfa::compute_characteristic_vector;
+        use std::cmp;
         let mut state = Self::initial_state();
         let left_chars: Vec<char> = left.chars().collect();
         for chr in right.chars() {
-            let chi = compute_characteristic_vector(&left_chars[state.offset as usize..], chr);
+            let start = state.offset as usize;
+            let stop = cmp::min(start + self.diameter, left_chars.len());
+            let chi = compute_characteristic_vector(&left_chars[start..stop], chr) as u32;
             state = self.transition(state, chi).apply(state);
             if state.is_dead_end() {
                 return Distance::AtLeast(self.max_distance + 1u8);
@@ -74,10 +117,10 @@ impl ParametricDFA {
 
     pub fn distance(&self, state: ParametricState, query_len: usize) -> Distance {
         let remaining_offset: usize = query_len - state.offset as usize;
-        if state.is_dead_end() || remaining_offset >= self.accept_stride {
+        if state.is_dead_end() || remaining_offset >= self.diameter {
             Distance::AtLeast(self.max_distance + 1u8)
         } else {
-            let d = self.distance[(self.accept_stride * state.shape_id as usize) + remaining_offset];
+            let d = self.distance[(self.diameter * state.shape_id as usize) + remaining_offset];
             if d > self.max_distance {
                 Distance::AtLeast(d)
             } else {
@@ -86,14 +129,9 @@ impl ParametricDFA {
         }
     }
 
-    pub fn transition(&self, state: ParametricState, chi: u64) -> Transition {
-        let chi = chi & self.chi_mask;
+    pub fn transition(&self, state: ParametricState, chi: u32) -> Transition {
+        assert!((chi as usize) < self.transition_stride);
         self.transitions[self.transition_stride * state.shape_id as usize + chi as usize]
-    }
-
-    pub fn accept(&mut self, state: ParametricState, chi: u64) -> ParametricState {
-        let transition = self.transition(state, chi);
-        transition.apply(state)
     }
 
 
@@ -119,7 +157,7 @@ impl ParametricDFA {
             }
             for &chi in &chi_values {
                 {
-                    let multistate: &MultiState = index.from_id(state_id);
+                    let multistate: &MultiState = index.get_from_id(state_id);
                     nfa.transition(multistate, &mut dest_multistate, chi);
                 }
                 let translation = dest_multistate.normalize();
@@ -129,18 +167,15 @@ impl ParametricDFA {
                     delta_offset: translation
                 });
             }
-
-
         }
 
         let num_states = index.len();
-        let accept_stride = multistate_diameter as usize;
-        let mut distance: Vec<u8> = Vec::with_capacity(accept_stride * num_states as usize);
+        let multistate_diameter = multistate_diameter as usize;
+        let mut distance: Vec<u8> = Vec::with_capacity(multistate_diameter * num_states as usize);
 
         for state_id in 0..num_states {
-            let multistate = index.from_id(state_id);
-            for offset in 0u8..multistate_diameter {
-                let accept_val = max_distance + 1;
+            let multistate = index.get_from_id(state_id);
+            for offset in 0..multistate_diameter {
                 let dist = nfa.multistate_distance(multistate, offset as u32).to_u8();
                 distance.push(dist);
             }
@@ -148,47 +183,11 @@ impl ParametricDFA {
 
         ParametricDFA {
             transition_stride: num_chi as usize,
-            accept_stride: accept_stride,
             distance: distance,
             max_distance: max_distance,
             transitions: transitions,
-            chi_mask: (1 << multistate_diameter) - 1,
+            diameter: multistate_diameter as usize,
         }
     }
 
 }
-
-struct Index<I: Eq + Hash + Clone> {
-    index: HashMap<I, u32>,
-    items: Vec<I>,
-}
-
-impl<I: Eq + Hash + Clone> Index<I> {
-
-    fn new() -> Index<I> {
-        Index {
-            index: HashMap::new(),
-            items: Vec::new()
-        }
-    }
-
-    fn get_or_allocate(&mut self, item: &I) -> u32 {
-        let index_len: u32 = self.len();
-        let item_index = *self.index
-            .entry(item.clone())
-            .or_insert(index_len);
-        if item_index == index_len {
-            self.items.push(item.clone());
-        }
-        item_index as u32
-    }
-
-    fn len(&self) -> u32 {
-        self.items.len() as u32
-    }
-
-    fn from_id(&self, id: u32) -> &I {
-        &self.items[id as usize]
-    }
-}
-

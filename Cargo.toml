@@ -1,9 +1,7 @@
 [package]
-name = "levenshtein"
+name = "levenshtein_automaton"
 version = "0.1.0"
 authors = ["Paul Masurel <paul.masurel@gmail.com>"]
-
-[dependencies]
 
 [dev-dependencies]
 levenshtein = "1.0"
