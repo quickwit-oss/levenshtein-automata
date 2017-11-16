@@ -1,12 +1,13 @@
 use std::hash::Hash;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 pub(crate) struct Index<I: Eq + Hash + Clone> {
     index: HashMap<I, u32>,
     items: Vec<I>,
 }
 
-impl<I: Eq + Hash + Clone> Index<I> {
+impl<I: Eq + Hash + Clone + Debug> Index<I> {
 
     pub fn new() -> Index<I> {
         Index {
