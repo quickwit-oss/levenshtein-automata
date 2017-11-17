@@ -188,14 +188,14 @@ fn test_simple() {
 
 #[test]
 fn test_jp() {
-    let q: &str = "寿司";//焦げられない";
-    let nfa = LevenshteinNFA::levenshtein(1, false);
+    let q: &str = "寿司は焦げられない";
+    let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_dfa(q);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
-//    assert_eq!(dfa.eval("寿司は焦げられな"), Distance::Exact(1u8));
-//    assert_eq!(dfa.eval("寿司は焦げられなI"), Distance::Exact(1u8));
-//    assert_eq!(dfa.eval("寿司は焦げられなIい"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval("寿司は焦げられな"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval("寿司は焦げられなI"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval("寿司は焦げられなIい"), Distance::Exact(1u8));
 }
 
 #[test]

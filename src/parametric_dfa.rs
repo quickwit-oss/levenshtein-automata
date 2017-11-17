@@ -39,6 +39,48 @@ impl Transition {
     }
 }
 
+
+struct ParametricStateIndex {
+    state_index: Vec<Option<u32>>,
+    state_queue: Vec<ParametricState>,
+    num_offsets: usize,
+}
+
+impl ParametricStateIndex {
+    fn new(query_len: usize, num_param_states: usize) -> ParametricStateIndex {
+        let num_offsets = query_len + 1;
+        let max_num_states = num_param_states * num_offsets;
+        ParametricStateIndex {
+            state_index: vec![None; max_num_states],
+            state_queue: Vec::with_capacity(100),
+            num_offsets: num_offsets
+        }
+    }
+
+    fn num_states(&self) -> usize {
+        self.state_queue.len()
+    }
+
+    fn max_num_states(&self) -> usize {
+        self.state_index.len()
+    }
+
+    fn get_or_allocate(&mut self, parametric_state: ParametricState) -> u32 {
+        let bucket = (parametric_state.shape_id as usize) * self.num_offsets + parametric_state.offset as usize;
+        if let Some(state_id) = self.state_index[bucket] {
+           return state_id;
+        }
+        let new_state = self.state_queue.len() as u32;
+        self.state_queue.push(parametric_state);
+        self.state_index[bucket] = Some(new_state);
+        new_state
+    }
+
+    fn get(&self, state_id: u32) -> ParametricState {
+        self.state_queue[state_id as usize]
+    }
+}
+
 pub struct ParametricDFA {
     distance: Vec<u8>,
     transitions: Vec<Transition>,
@@ -61,32 +103,36 @@ impl ParametricDFA {
     }
 
     pub fn build_dfa(&self, query: &str) -> DFA {
-        let num_states = self.num_states() * (query.len() + 1);
-        let mut state_index: Index<ParametricState> = Index::with_capacity(num_states);
 
         let query_chars: Vec<char> = query.chars().collect();
         let query_len = query_chars.len();
         let alphabet = Alphabet::for_query_chars(query_chars);
 
-        state_index.get_or_allocate(&ParametricState::empty());
-        let initial_state_id = state_index.get_or_allocate(&ParametricDFA::initial_state());
+        let mut parametric_state_index = ParametricStateIndex::new(query_len, self.num_states());
+        let max_num_states = parametric_state_index.max_num_states();
 
-        let mut dfa_builder = DFABuilder::with_capacity(num_states);
+
+
+        let dead_end_state_id = parametric_state_index.get_or_allocate(ParametricState::empty());
+        assert_eq!(dead_end_state_id, 0);
+        let initial_state_id = parametric_state_index.get_or_allocate(ParametricDFA::initial_state());
+
+        let mut dfa_builder = DFABuilder::with_max_num_states(max_num_states);
         let mask = (1 << self.diameter) - 1;
 
         for state_id in 0.. {
-            if state_id == state_index.len() {
+            if state_id == parametric_state_index.num_states() {
                 break;
             }
-            let state = *state_index.get_from_id(state_id);
+            let state = parametric_state_index.get(state_id as u32);
             let default_successor = self.transition(state, 0u32).apply(state);
-            let default_successor_id = state_index.get_or_allocate(&default_successor);
+            let default_successor_id = parametric_state_index.get_or_allocate(default_successor);
             let distance = self.distance(state, query_len);
-            let mut state_builder = dfa_builder.add_state(state_id, distance, default_successor_id);
+            let mut state_builder = dfa_builder.add_state(state_id as u32, distance, default_successor_id);
             for &(chr, characteristic_vec) in alphabet.iter() {
                 let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                 let dest_state: ParametricState = self.transition(state, chi).apply(state);
-                let dest_state_id = state_index.get_or_allocate(&dest_state);
+                let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
                 state_builder.add_transition(chr, dest_state_id);
             }
         }

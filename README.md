@@ -43,12 +43,12 @@ Here is the time spent to build a Levenshtein DFA for the string "Levenshtein"
 
 
 ```ignore
-test bench::bench_build_dfa_distance1_no_transpose   ... bench:     115,580 ns/iter (+/- 38,866)
-test bench::bench_build_dfa_distance1_with_transpose ... bench:     112,540 ns/iter (+/- 29,627)
-test bench::bench_build_dfa_distance2_no_transpose   ... bench:     308,064 ns/iter (+/- 141,326)
-test bench::bench_build_dfa_distance2_with_transpose ... bench:     301,771 ns/iter (+/- 117,123)
-test bench::bench_build_dfa_distance3_no_transpose   ... bench:   1,459,171 ns/iter (+/- 267,558)
-test bench::bench_build_dfa_distance3_with_transpose ... bench:   2,123,324 ns/iter (+/- 1,559,343)
-test bench::bench_build_dfa_distance4_no_transpose   ... bench:   6,114,126 ns/iter (+/- 654,160)
-test bench::bench_build_dfa_distance4_with_transpose ... bench:  10,313,151 ns/iter (+/- 1,283,931)
+dfa dist1 no transposition        35,627 ns/iter (+/- 3,237)
+dfa dist1 with transposition      36,493 ns/iter (+/- 12,680)
+dfa dist2 no transposition        97,137 ns/iter (+/- 14,556)
+dfa dist2 with transposition     100,958 ns/iter (+/- 4,231)
+dfa dist3 no transposition       834,412 ns/iter (+/- 158,329)
+dfa dist3 with transposition   1,414,523 ns/iter (+/- 396,278)
+dfa dist4 no transposition     4,716,365 ns/iter (+/- 869,024)
+dfa dist4 with transposition   8,044,162 ns/iter (+/- 594,523)
 ```

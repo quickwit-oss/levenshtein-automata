@@ -16,13 +16,6 @@ impl<I: Eq + Hash + Clone + Debug> Index<I> {
         }
     }
 
-    pub fn with_capacity(capacity: usize) -> Index<I> {
-        Index {
-            index: HashMap::with_capacity(capacity),
-            items: Vec::with_capacity(capacity)
-        }
-    }
-
     pub fn get_or_allocate(&mut self, item: &I) -> u32 {
         let index_len: u32 = self.len();
         let item_index = *self.index

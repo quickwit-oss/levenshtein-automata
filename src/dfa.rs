@@ -1,12 +1,10 @@
 use super::Distance;
-use std::collections::HashMap;
 
 fn fill(dest: &mut [u32], val: u32) {
     for d in dest {
         *d = val;
     }
 }
-
 
 /// Implementation of a Deterministic Finite Automaton for
 /// a Levenshtein Automaton targeting UTF-8 encoded strings.
@@ -83,32 +81,40 @@ impl<'a> DFAStateBuilder<'a> {
             from_state_id_decoded = intermediary_state_id_decoded;
         }
 
-        let to_state_id_decoded = self.dfa_builder.get_or_allocate(Utf8State::Original(to_state_id));
+        let to_state_id_decoded = self.dfa_builder.get_or_allocate(Utf8StateId::original(to_state_id));
         self.add_transition_id(from_state_id_decoded, bytes[bytes.len() - 1], to_state_id_decoded);
     }
 }
 
 pub struct DFABuilder {
-    index: HashMap<Utf8State, u32>,
+    index: Vec<Option<u32>>,
     distances: Vec<Distance>,
     transitions: Vec<[u32; 256]>,
     initial_state: u32,
     num_states: u32,
 }
 
+
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
-enum Utf8State {
-    Original(u32),
-    Predecessor(u32, u8), // predecessor after n-bytes.
+struct Utf8StateId(u32);
+impl Utf8StateId {
+    pub fn original(state_id: u32) -> Utf8StateId {
+        Utf8StateId::predecessor(state_id, 0u8)
+    }
+
+    pub fn predecessor(state_id: u32, num_steps: u8) -> Utf8StateId {
+        Utf8StateId(state_id * 4u32 + num_steps as u32)
+    }
 }
+
 
 impl DFABuilder {
 
-    pub fn with_capacity(capacity: usize) -> DFABuilder {
+    pub fn with_max_num_states(max_num_states: usize) -> DFABuilder {
         DFABuilder {
-            index: HashMap::with_capacity(capacity),
-            distances: Vec::with_capacity(capacity),
-            transitions: Vec::with_capacity(capacity),
+            index: vec![None; max_num_states * 4 + 3],
+            distances: Vec::with_capacity(100),
+            transitions: Vec::with_capacity(100),
             initial_state: 0u32,
             num_states: 0u32,
         }
@@ -122,30 +128,31 @@ impl DFABuilder {
         new_state
     }
 
-    fn get_or_allocate(&mut self, state: Utf8State) -> u32 {
-        if let Some(state) = self.index.get(&state) {
-            return *state;
+    fn get_or_allocate(&mut self, state: Utf8StateId) -> u32 {
+        let state_bucket = state.0 as usize;
+        if let Some(state) = self.index[state_bucket] {
+            return state;
         }
         let new_state = self.allocate();
-        self.index.insert(state, new_state);
+        self.index[state_bucket] = Some(new_state);
         new_state
     }
 
     pub fn set_initial_state(&mut self, initial_state: u32) {
-        let state_id_decoded = self.get_or_allocate(Utf8State::Original(initial_state));
+        let state_id_decoded = self.get_or_allocate(Utf8StateId::original(initial_state));
         self.initial_state = state_id_decoded
     }
 
     pub fn add_state(&mut self, state: u32, distance: Distance, default_successor_orig: u32) -> DFAStateBuilder {
-        let state_id = self.get_or_allocate(Utf8State::Original(state));
+        let state_id = self.get_or_allocate(Utf8StateId::original(state));
         self.distances[state_id as usize] = distance;
-        let default_successor_id = self.get_or_allocate(Utf8State::Original(default_successor_orig));
+        let default_successor_id = self.get_or_allocate(Utf8StateId::original(default_successor_orig));
         let mut predecessor_state_id = default_successor_id;
         let mut predecessor_states = [predecessor_state_id; 4];
 
         {
             for num_bytes in 1..4 {
-                let predecessor_state = Utf8State::Predecessor(default_successor_id, num_bytes as u8);
+                let predecessor_state = Utf8StateId::predecessor(default_successor_orig, num_bytes as u8);
                 predecessor_state_id = self.get_or_allocate(predecessor_state);
                 predecessor_states[num_bytes] = predecessor_state_id;
                 let succ = predecessor_states[num_bytes - 1];
@@ -200,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_utf8_dfa_builder() {
-        let mut dfa_builder = DFABuilder::with_capacity(2);
+        let mut dfa_builder = DFABuilder::with_max_num_states(2);
         dfa_builder
             .add_state(0, Distance::Exact(1u8), 1);
         dfa_builder
