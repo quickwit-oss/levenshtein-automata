@@ -1,32 +1,29 @@
 /*!
 
-This crate makes it fast and simple to build a finite determinic automaton that computes
+This crate makes it fast and simple to build a deterministic finite automaton (DFA) that computes
 the levenshtein distance from a given string.
 
 
 # Example
 
 ```rust
-extern crate levenshtein_automaton;
-
+# extern crate levenshtein_automaton;
 use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
+# fn main() {
 
-fn main() {
+// Building this factory is not free.
+let lev_automaton_builder = LevenshteinAutomatonBuilder::new(2, true);
 
-    // Building this factory is not free.
-    // It can be reused for sub
-    let lev_automaton_builder = LevenshteinAutomatonBuilder::new(2, true);
+// We can now build an entire dfa.
+let dfa = lev_automaton_builder.build_dfa("Levenshtein");
 
-    // We can now build an entire dfa.
-    let dfa = lev_automaton_builder.build_dfa("saucisson sec");
-
-    let mut state = dfa.initial_state();
-        for &b in "saucissonsec".as_bytes() {
-        state = dfa.transition(state, b);
-    }
-
-    assert_eq!(dfa.distance(state), Distance::Exact(1));
+let mut state = dfa.initial_state();
+    for &b in "Levenshtain".as_bytes() {
+    state = dfa.transition(state, b);
 }
+
+assert_eq!(dfa.distance(state), Distance::Exact(1));
+# }
 ```
 
 The implementation is based on the following paper
@@ -56,7 +53,7 @@ mod index;
 use self::index::Index;
 use self::levenshtein_nfa::LevenshteinNFA;
 use self::parametric_dfa::ParametricDFA;
-pub use self::dfa::DFA;
+pub use self::dfa::{DFA, SINK_STATE};
 pub use self::levenshtein_nfa::Distance;
 
 /// Builder for Levenshtein Automata.
@@ -64,11 +61,10 @@ pub use self::levenshtein_nfa::Distance;
 /// It wraps a precomputed datastructure that allows to
 /// produce small (but not minimal) DFA.
 pub struct LevenshteinAutomatonBuilder {
-    parametric_dfa: ParametricDFA
+    parametric_dfa: ParametricDFA,
 }
 
 impl LevenshteinAutomatonBuilder {
-
     /// Creates a Levenshtein automaton builder.
     /// The builder
     ///
@@ -81,9 +77,7 @@ impl LevenshteinAutomatonBuilder {
     pub fn new(max_distance: u8, transposition_cost_one: bool) -> LevenshteinAutomatonBuilder {
         let levenshtein_nfa = LevenshteinNFA::levenshtein(max_distance, transposition_cost_one);
         let parametric_dfa = ParametricDFA::from_nfa(&levenshtein_nfa);
-        LevenshteinAutomatonBuilder {
-            parametric_dfa: parametric_dfa
-        }
+        LevenshteinAutomatonBuilder { parametric_dfa: parametric_dfa }
     }
 
     /// Builds a Finite Determinstic Automaton to compute
@@ -100,4 +94,3 @@ impl LevenshteinAutomatonBuilder {
         self.parametric_dfa.build_dfa(query)
     }
 }
-

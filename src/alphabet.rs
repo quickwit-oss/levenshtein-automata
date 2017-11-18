@@ -4,9 +4,9 @@ use std::slice;
 pub struct FullCharacteristicVector(u64);
 
 impl FullCharacteristicVector {
-   pub fn shift_and_mask(&self, offset: usize, mask: u32) -> u32 {
+    pub fn shift_and_mask(&self, offset: usize, mask: u32) -> u32 {
         ((self.0 >> offset) as u32) & mask
-   }
+    }
 }
 
 impl From<u64> for FullCharacteristicVector {
@@ -16,20 +16,22 @@ impl From<u64> for FullCharacteristicVector {
 }
 
 pub struct Alphabet {
-    charset: Vec<(char, FullCharacteristicVector)>
+    charset: Vec<(char, FullCharacteristicVector)>,
 }
 
 impl Alphabet {
-
     pub fn iter(&self) -> slice::Iter<(char, FullCharacteristicVector)> {
         self.charset.iter()
     }
 
-    pub fn for_query_chars(query_chars: Vec<char>) -> Alphabet {
+    pub fn for_query_chars(query_chars: &[char]) -> Alphabet {
         // TODO : handle more than 64 chars
         // TODO document this limitation.
-        assert!(query_chars.len() < 64, "Only query shorter than 64 chars are supported for the moment.");
-        let mut charset: Vec<char> = query_chars.clone();
+        assert!(
+            query_chars.len() < 64,
+            "Only query shorter than 64 chars are supported for the moment."
+        );
+        let mut charset = Vec::from(query_chars);
         charset.sort();
         charset.dedup();
         let charset = charset
@@ -45,9 +47,7 @@ impl Alphabet {
                 (c, FullCharacteristicVector(bits))
             })
             .collect();
-        Alphabet {
-            charset: charset
-        }
+        Alphabet { charset: charset }
     }
 }
 
@@ -58,7 +58,8 @@ mod tests {
 
     #[test]
     fn test_alphabet() {
-        let alphabet = Alphabet::for_query_chars("happy".chars().collect());
+        let chars: Vec<char> = "happy".chars().collect();
+        let alphabet = Alphabet::for_query_chars(&chars);
         let mut it = alphabet.iter();
 
         {
@@ -86,6 +87,9 @@ mod tests {
     #[test]
     fn test_full_characteristic() {
         assert_eq!(FullCharacteristicVector(2u64).shift_and_mask(1, 1u32), 1);
-        assert_eq!(FullCharacteristicVector((1u64 << 5) + (1u64 << 10)).shift_and_mask(3, 63u32), 4);
+        assert_eq!(
+            FullCharacteristicVector((1u64 << 5) + (1u64 << 10)).shift_and_mask(3, 63u32),
+            4
+        );
     }
 }

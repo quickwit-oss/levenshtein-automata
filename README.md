@@ -6,11 +6,11 @@ the levenshtein distance from a given string.
 # Example
 
 ```rust
-extern crate levenshtein_automaton;
+# extern crate levenshtein_automaton;
 
-use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
+# use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
 
-fn main() {
+# fn main() {
 
     // Building this factory is not free.
     // It can be reused for sub
@@ -24,8 +24,8 @@ fn main() {
         state = dfa.transition(state, b);
     }
 
-    assert_eq!(dfa.distance(state), Distance::Exact(1));
-}
+   assert_eq!(dfa.distance(state), Distance::Exact(1));
+# }
 ```
 
 The implementation is based on the following paper

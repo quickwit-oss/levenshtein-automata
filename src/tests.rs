@@ -42,9 +42,9 @@ fn combinations(alphabet: &[char], len: usize) -> Vec<String> {
             .iter()
             .cloned()
             .flat_map(|letter: char| {
-                prev
-                    .iter()
-                    .map(move |prefix| format!("{}{}", prefix, letter))
+                prev.iter().map(
+                    move |prefix| format!("{}{}", prefix, letter),
+                )
             })
             .collect();
         result.extend_from_slice(&prev[..]);
@@ -58,7 +58,6 @@ fn test_levenshtein_nfa_slow() {
     let test_sample = TestSample::with_num_chars(5);
     test_sample.each(test_levenshtein_nfa_util);
 }
-
 
 #[test]
 #[ignore]
@@ -84,7 +83,6 @@ fn test_levenshtein_dfa_slow() {
     test_sample.each(test_levenshtein_nfa_util);
 }
 
-
 #[test]
 #[ignore]
 fn test_levenshtein_parametric_dfa_slow() {
@@ -107,7 +105,7 @@ fn test_levenshtein_parametric_dfa_slow() {
 
 struct TestSample {
     lefts: Vec<String>,
-    rights: Vec<String>
+    rights: Vec<String>,
 }
 
 impl TestSample {
@@ -134,7 +132,7 @@ impl TestSample {
             .collect();
         TestSample {
             lefts: sorted_strings,
-            rights: strings
+            rights: strings,
         }
     }
 
@@ -195,7 +193,10 @@ fn test_jp() {
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
     assert_eq!(dfa.eval("寿司は焦げられな"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("寿司は焦げられなI"), Distance::Exact(1u8));
-    assert_eq!(dfa.eval("寿司は焦げられなIい"), Distance::Exact(1u8));
+    assert_eq!(
+        dfa.eval("寿司は焦げられなIい"),
+        Distance::Exact(1u8)
+    );
 }
 
 #[test]

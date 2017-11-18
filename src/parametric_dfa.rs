@@ -1,4 +1,4 @@
-use super::dfa::{DFA, DFABuilder};
+use super::dfa::{DFA, Utf8DFABuilder};
 use super::Index;
 use super::levenshtein_nfa::Distance;
 use super::levenshtein_nfa::{LevenshteinNFA, MultiState};
@@ -15,7 +15,7 @@ impl ParametricState {
     fn empty() -> ParametricState {
         ParametricState {
             shape_id: 0u32,
-            offset: 0u32
+            offset: 0u32,
         }
     }
     fn is_dead_end(&self) -> bool {
@@ -34,7 +34,7 @@ impl Transition {
     fn apply(&self, state: ParametricState) -> ParametricState {
         ParametricState {
             shape_id: self.dest_shape_id,
-            offset: state.offset + self.delta_offset
+            offset: state.offset + self.delta_offset,
         }
     }
 }
@@ -53,7 +53,7 @@ impl ParametricStateIndex {
         ParametricStateIndex {
             state_index: vec![None; max_num_states],
             state_queue: Vec::with_capacity(100),
-            num_offsets: num_offsets
+            num_offsets: num_offsets,
         }
     }
 
@@ -66,9 +66,10 @@ impl ParametricStateIndex {
     }
 
     fn get_or_allocate(&mut self, parametric_state: ParametricState) -> u32 {
-        let bucket = (parametric_state.shape_id as usize) * self.num_offsets + parametric_state.offset as usize;
+        let bucket = (parametric_state.shape_id as usize) * self.num_offsets +
+            parametric_state.offset as usize;
         if let Some(state_id) = self.state_index[bucket] {
-           return state_id;
+            return state_id;
         }
         let new_state = self.state_queue.len() as u32;
         self.state_queue.push(parametric_state);
@@ -90,7 +91,6 @@ pub struct ParametricDFA {
 }
 
 impl ParametricDFA {
-
     pub fn initial_state() -> ParametricState {
         ParametricState {
             shape_id: 1,
@@ -106,7 +106,7 @@ impl ParametricDFA {
 
         let query_chars: Vec<char> = query.chars().collect();
         let query_len = query_chars.len();
-        let alphabet = Alphabet::for_query_chars(query_chars);
+        let alphabet = Alphabet::for_query_chars(&query_chars);
 
         let mut parametric_state_index = ParametricStateIndex::new(query_len, self.num_states());
         let max_num_states = parametric_state_index.max_num_states();
@@ -115,9 +115,10 @@ impl ParametricDFA {
 
         let dead_end_state_id = parametric_state_index.get_or_allocate(ParametricState::empty());
         assert_eq!(dead_end_state_id, 0);
-        let initial_state_id = parametric_state_index.get_or_allocate(ParametricDFA::initial_state());
+        let initial_state_id =
+            parametric_state_index.get_or_allocate(ParametricDFA::initial_state());
 
-        let mut dfa_builder = DFABuilder::with_max_num_states(max_num_states);
+        let mut dfa_builder = Utf8DFABuilder::with_max_num_states(max_num_states);
         let mask = (1 << self.diameter) - 1;
 
         for state_id in 0.. {
@@ -128,7 +129,8 @@ impl ParametricDFA {
             let default_successor = self.transition(state, 0u32).apply(state);
             let default_successor_id = parametric_state_index.get_or_allocate(default_successor);
             let distance = self.distance(state, query_len);
-            let mut state_builder = dfa_builder.add_state(state_id as u32, distance, default_successor_id);
+            let mut state_builder =
+                dfa_builder.add_state(state_id as u32, distance, default_successor_id);
             for &(chr, characteristic_vec) in alphabet.iter() {
                 let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                 let dest_state: ParametricState = self.transition(state, chi).apply(state);
@@ -209,7 +211,7 @@ impl ParametricDFA {
                 let dest_id = index.get_or_allocate(&dest_multistate);
                 transitions.push(Transition {
                     dest_shape_id: dest_id,
-                    delta_offset: translation
+                    delta_offset: translation,
                 });
             }
         }
@@ -234,5 +236,4 @@ impl ParametricDFA {
             diameter: multistate_diameter as usize,
         }
     }
-
 }

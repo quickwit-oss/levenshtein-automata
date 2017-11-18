@@ -17,7 +17,6 @@ pub struct MultiState {
 }
 
 impl MultiState {
-
     pub fn states(&self) -> &[NFAState] {
         &self.states[..]
     }
@@ -27,9 +26,7 @@ impl MultiState {
     }
 
     pub fn empty() -> MultiState {
-        MultiState {
-            states: Vec::new()
-        }
+        MultiState { states: Vec::new() }
     }
 
     pub fn normalize(&mut self) -> u32 {
@@ -46,9 +43,7 @@ impl MultiState {
     }
 
     fn add_state(&mut self, new_state: NFAState) {
-        if self.states
-            .iter()
-            .any(|state| state.imply(new_state)) {
+        if self.states.iter().any(|state| state.imply(new_state)) {
             // this state is already included in the current set of states.
             return;
         }
@@ -66,17 +61,34 @@ impl MultiState {
     }
 }
 
+
+/// Levenshtein Distance computed by a Levenshtein Automaton.
+///
+/// Levenshtein automata can only compute the exact Levenshtein distance
+/// up to a given `max_distance`.
+///
+/// Over this distance, the automaton will invariably
+/// return `Distance::AtLeast(max_distance + 1)`.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Distance {
     Exact(u8),
-    AtLeast(u8)
+    AtLeast(u8),
 }
 
 impl Distance {
+    /// Returns the highest lower bound for the distance.
+    /// It is equivalent to
+    ///
+    /// ```ignored
+    /// match distance {
+    ///     Distance::Exact(d) |
+    ///     Distance::AtLeast(d) => d,
+    /// }
+    /// ```
     pub fn to_u8(&self) -> u8 {
-        match self {
-            &Distance::Exact(d) => d,
-            &Distance::AtLeast(d) => d
+        match *self {
+            Distance::Exact(d) |
+            Distance::AtLeast(d) => d,
         }
     }
 }
@@ -85,9 +97,7 @@ impl PartialOrd for Distance {
     fn partial_cmp(&self, other: &Distance) -> Option<Ordering> {
         use self::Distance::*;
         match (*self, *other) {
-            (Exact(left), Exact(right)) => {
-                left.partial_cmp(&right)
-            }
+            (Exact(left), Exact(right)) => left.partial_cmp(&right),
             (Exact(left), AtLeast(right)) => {
                 if right > left {
                     Some(Ordering::Greater)
@@ -115,7 +125,7 @@ impl PartialOrd for Distance {
 
 pub struct LevenshteinNFA {
     max_distance: u8,
-    damerau: bool
+    damerau: bool,
 }
 
 fn extract_bit(bitset: u64, pos: u8) -> bool {
@@ -134,11 +144,10 @@ fn dist(left: u32, right: u32) -> u32 {
 }
 
 impl LevenshteinNFA {
-
     pub fn levenshtein(max_distance: u8, transposition: bool) -> LevenshteinNFA {
         LevenshteinNFA {
             max_distance: max_distance,
-            damerau: transposition
+            damerau: transposition,
         }
     }
 
@@ -150,7 +159,7 @@ impl LevenshteinNFA {
             .filter(|d| *d <= self.max_distance)
             .min()
             .map(Distance::Exact)
-            .unwrap_or(Distance::AtLeast(self.max_distance + 1u8))
+            .unwrap_or_else(|| Distance::AtLeast(self.max_distance + 1u8))
     }
 
     pub fn max_distance(&self) -> u8 {
@@ -205,7 +214,7 @@ impl LevenshteinNFA {
                 if extract_bit(symbol, d) {
                     // for d > 0, as many deletion and character match
                     multistate.add_state(NFAState {
-                        offset: state.offset + 1 + d as u32,
+                        offset: state.offset + 1 + u32::from(d),
                         distance: state.distance + d,
                         in_transpose: false,
                     });
@@ -224,25 +233,25 @@ impl LevenshteinNFA {
             multistate.add_state(NFAState {
                 offset: state.offset + 1,
                 distance: state.distance,
-                in_transpose: false
+                in_transpose: false,
             });
         }
 
-        if state.in_transpose {
-            if extract_bit(symbol, 0u8) {
-                multistate.add_state(NFAState {
-                    offset: state.offset + 2,
-                    distance: state.distance,
-                    in_transpose: false
-                });
-            }
+        if state.in_transpose && extract_bit(symbol, 0u8) {
+            multistate.add_state(NFAState {
+                offset: state.offset + 2,
+                distance: state.distance,
+                in_transpose: false,
+            });
         }
     }
 
-    pub(crate) fn transition(&self,
-                      current_state: &MultiState,
-                      dest_state: &mut MultiState,
-                      shifted_chi_vector: u64) {
+    pub(crate) fn transition(
+        &self,
+        current_state: &MultiState,
+        dest_state: &mut MultiState,
+        shifted_chi_vector: u64,
+    ) {
         dest_state.clear();
         let mask = (1u64 << self.multistate_diameter()) - 1u64;
         for &state in current_state.states() {
@@ -262,17 +271,16 @@ pub struct NFAState {
 
 impl NFAState {
     fn imply(&self, other: NFAState) -> bool {
-        let tranpose_imply =  self.in_transpose | !other.in_transpose;
-        let delta_offset: u32 =
-            if self.offset >= other.offset {
-                self.offset - other.offset
-            } else {
-                other.offset - self.offset
-            };
-        if tranpose_imply {
-            other.distance as u32 >= self.distance as u32 + delta_offset
+        let tranpose_imply = self.in_transpose | !other.in_transpose;
+        let delta_offset: u32 = if self.offset >= other.offset {
+            self.offset - other.offset
         } else {
-            other.distance as u32 > self.distance as u32 + delta_offset
+            other.offset - self.offset
+        };
+        if tranpose_imply {
+            u32::from(other.distance) >= u32::from(self.distance) + delta_offset
+        } else {
+            u32::from(other.distance) > u32::from(self.distance) + delta_offset
         }
 
     }
