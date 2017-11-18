@@ -111,8 +111,6 @@ impl ParametricDFA {
         let mut parametric_state_index = ParametricStateIndex::new(query_len, self.num_states());
         let max_num_states = parametric_state_index.max_num_states();
 
-
-
         let dead_end_state_id = parametric_state_index.get_or_allocate(ParametricState::empty());
         assert_eq!(dead_end_state_id, 0);
         let initial_state_id =
@@ -131,11 +129,11 @@ impl ParametricDFA {
             let distance = self.distance(state, query_len);
             let mut state_builder =
                 dfa_builder.add_state(state_id as u32, distance, default_successor_id);
-            for &(chr, characteristic_vec) in alphabet.iter() {
+            for &(ref chr, ref characteristic_vec) in alphabet.iter() {
                 let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                 let dest_state: ParametricState = self.transition(state, chi).apply(state);
                 let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
-                state_builder.add_transition(chr, dest_state_id);
+                state_builder.add_transition(*chr, dest_state_id);
             }
         }
 

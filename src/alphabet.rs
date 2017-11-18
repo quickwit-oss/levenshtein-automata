@@ -1,17 +1,20 @@
 use std::slice;
 
-#[derive(Clone, Copy)]
-pub struct FullCharacteristicVector(u64);
+
+#[derive(Clone)]
+pub struct FullCharacteristicVector(Vec<u32>);
 
 impl FullCharacteristicVector {
     pub fn shift_and_mask(&self, offset: usize, mask: u32) -> u32 {
-        ((self.0 >> offset) as u32) & mask
-    }
-}
-
-impl From<u64> for FullCharacteristicVector {
-    fn from(bits: u64) -> Self {
-        FullCharacteristicVector(bits)
+        let bucket_id = offset / 32;
+        let align = offset - bucket_id * 32;
+        if align == 0 {
+            self.0[bucket_id] & mask
+        } else {
+            let left = (self.0[bucket_id] >> align) as u32;
+            let right = self.0[bucket_id + 1] << (32 - align) as u32;
+            (left | right) & mask
+        }
     }
 }
 
@@ -25,25 +28,27 @@ impl Alphabet {
     }
 
     pub fn for_query_chars(query_chars: &[char]) -> Alphabet {
-        // TODO : handle more than 64 chars
-        // TODO document this limitation.
-        assert!(
-            query_chars.len() < 64,
-            "Only query shorter than 64 chars are supported for the moment."
-        );
         let mut charset = Vec::from(query_chars);
         charset.sort();
         charset.dedup();
         let charset = charset
             .into_iter()
             .map(|c| {
-                let bits = query_chars
-                    .iter()
-                    .cloned()
-                    .enumerate()
-                    .filter(|&(_, ref query_char)| *query_char == c)
-                    .map(|(i, _)| (1u64 << i))
-                    .sum();
+                let mut bits: Vec<u32> = query_chars
+                    .chunks(32)
+                    .map(|chunk| {
+                        let mut chunk_bits = 0u32;
+                        let mut bit = 1u32;
+                        for &chr in chunk {
+                            if chr == c {
+                                chunk_bits |= bit;
+                            }
+                            bit <<= 1;
+                        }
+                        chunk_bits
+                    })
+                    .collect();
+                bits.push(0u32);
                 (c, FullCharacteristicVector(bits))
             })
             .collect();
@@ -65,31 +70,57 @@ mod tests {
         {
             let &(ref c, ref chi) = it.next().unwrap();
             assert_eq!(*c, 'a');
-            assert_eq!(chi.0, 2u64);
+            assert_eq!(chi.0[0], 2u32);
         }
         {
             let &(ref c, ref chi) = it.next().unwrap();
             assert_eq!(*c, 'h');
-            assert_eq!(chi.0, 1u64);
+            assert_eq!(chi.0[0], 1u32);
         }
         {
             let &(ref c, ref chi) = it.next().unwrap();
             assert_eq!(*c, 'p');
-            assert_eq!(chi.0, 4u64 + 8u64);
+            assert_eq!(chi.0[0], 4u32 + 8u32);
         }
         {
             let &(ref c, ref chi) = it.next().unwrap();
             assert_eq!(*c, 'y');
-            assert_eq!(chi.0, 16u64);
+            assert_eq!(chi.0[0], 16u32);
         }
     }
 
     #[test]
     fn test_full_characteristic() {
-        assert_eq!(FullCharacteristicVector(2u64).shift_and_mask(1, 1u32), 1);
         assert_eq!(
-            FullCharacteristicVector((1u64 << 5) + (1u64 << 10)).shift_and_mask(3, 63u32),
+            FullCharacteristicVector(vec![2u32, 0u32]).shift_and_mask(1, 1u32),
+            1
+        );
+        assert_eq!(
+            FullCharacteristicVector(vec![(1u32 << 5) + (1u32 << 10), 0u32])
+                .shift_and_mask(3, 63u32),
             4
         );
+    }
+
+    #[test]
+    fn test_long_characteristic() {
+        let query_chars: Vec<char> = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaabcabewa".chars().collect();
+        let alphabet = Alphabet::for_query_chars(&query_chars[..]);
+        let mut alphabet_it = alphabet.iter();
+        {
+            let &(ref c, ref chi) = alphabet_it.next().unwrap();
+            assert_eq!(*c, 'a');
+            assert_eq!(chi.shift_and_mask(0, 7), 7);
+            assert_eq!(chi.shift_and_mask(28, 7), 3);
+            assert_eq!(chi.shift_and_mask(28, 127), 1 + 2 + 16);
+            assert_eq!(chi.shift_and_mask(28, 4095), 1 + 2 + 16 + 256);
+        }
+        {
+            let &(ref c, ref chi) = alphabet_it.next().unwrap();
+            assert_eq!(*c, 'b');
+            assert_eq!(chi.shift_and_mask(0, 7), 0);
+            assert_eq!(chi.shift_and_mask(28, 15), 4);
+            assert_eq!(chi.shift_and_mask(28, 63), 4 + 32);
+        }
     }
 }

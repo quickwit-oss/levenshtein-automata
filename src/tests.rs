@@ -63,12 +63,12 @@ fn generate_permutations(current: &mut [char], n: usize, dest: &mut Vec<Vec<char
     if n == 1 {
         dest.push(Vec::from(current));
     } else {
-        for i in 0..n-1 {
-            generate_permutations(current, n-1, dest);
+        for i in 0..n - 1 {
+            generate_permutations(current, n - 1, dest);
             if n % 2 == 0 {
-                current.swap(i, n-1);
+                current.swap(i, n - 1);
             } else {
-                current.swap(0, n-1);
+                current.swap(0, n - 1);
             }
         }
         generate_permutations(current, n - 1, dest);
@@ -99,7 +99,7 @@ fn test_levenshtein_dfa_slow() {
     let mut alphabet = vec!['あ', 'b', 'ぃ', 'a', 'え'];
     let mut alternate_mappings = Vec::new();
     generate_permutations(&mut alphabet[..], 5, &mut alternate_mappings);
-    
+
     for mapping in &alternate_mappings {
         for left in test_sample.lefts() {
             let left = remap(mapping, &left);
@@ -137,6 +137,39 @@ fn test_levenshtein_parametric_dfa_slow() {
         }
     });
 }
+
+#[test]
+fn test_levenshtein_parametric_dfa_long() {
+    let lev = LevenshteinNFA::levenshtein(2, true);
+    let param_dfa = ParametricDFA::from_nfa(&lev);
+    let test_str = "abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz";
+    let dfa = param_dfa.build_dfa(test_str);
+    {
+        let result_distance = dfa.eval(test_str);
+        assert_eq!(result_distance, Distance::Exact(0));
+    }
+    {
+        let test_str = "abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlnopqrstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz";
+        let result_distance = dfa.eval(test_str);
+        assert_eq!(result_distance, Distance::Exact(1));
+    }
+    {
+        let test_str = "abcdefghijlmnopqrstuvwxyz\
+                    abcdefghijlnopqrstuvwxyz\
+                    abcdefghijlmnoprqstuvwxyz\
+                    abcdefghijlmnopqrstuvwxyz";
+        let result_distance = dfa.eval(test_str);
+        assert_eq!(result_distance, Distance::Exact(2));
+    }
+
+}
+
 
 struct TestSample {
     lefts: Vec<String>,
