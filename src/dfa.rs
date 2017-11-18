@@ -104,22 +104,25 @@ impl<'a> Utf8DFAStateBuilder<'a> {
 
     pub fn add_transition(&mut self, chr: char, to_state_id: u32) {
         let mut buffer = [0u8; 4];
+
+        // The char may translate into more than one bytes.
+        // We create a chain for this reason.
         let bytes: &[u8] = chr.encode_utf8(&mut buffer).as_bytes();
         let mut from_state_id_decoded = self.state_id;
         for (i, b) in bytes[..bytes.len() - 1].iter().cloned().enumerate() {
             let remaining_num_bytes = bytes.len() - i as usize - 1 as usize;
             let default_successor = self.default_successor[remaining_num_bytes];
-            let mut intermediary_state_id_decoded: u32 =
+            let mut intermediary_state_id: u32 =
                 self.dfa_builder.transitions[from_state_id_decoded as usize][b as usize];
-            if intermediary_state_id_decoded == default_successor {
-                intermediary_state_id_decoded = self.dfa_builder.allocate();
+            if intermediary_state_id == default_successor {
+                intermediary_state_id = self.dfa_builder.allocate();
                 fill(
-                    &mut self.dfa_builder.transitions[intermediary_state_id_decoded as usize],
-                    default_successor,
+                    &mut self.dfa_builder.transitions[intermediary_state_id as usize],
+                    self.default_successor[remaining_num_bytes - 1],
                 );
             }
-            self.add_transition_id(from_state_id_decoded, b, intermediary_state_id_decoded);
-            from_state_id_decoded = intermediary_state_id_decoded;
+            self.add_transition_id(from_state_id_decoded, b, intermediary_state_id);
+            from_state_id_decoded = intermediary_state_id;
         }
 
         let to_state_id_decoded = self.dfa_builder.get_or_allocate(

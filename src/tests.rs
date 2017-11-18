@@ -59,19 +59,19 @@ fn test_levenshtein_nfa_slow() {
     test_sample.each(test_levenshtein_nfa_util);
 }
 
-fn permutate(current: &mut [char], n: usize, dest: &mut Vec<Vec<char>>) {
+fn generate_permutations(current: &mut [char], n: usize, dest: &mut Vec<Vec<char>>) {
     if n == 1 {
         dest.push(Vec::from(current));
     } else {
         for i in 0..n-1 {
-            permutate(current, n-1, dest);
+            generate_permutations(current, n-1, dest);
             if n % 2 == 0 {
                 current.swap(i, n-1);
             } else {
                 current.swap(0, n-1);
             }
         }
-        permutate(current, n - 1,  dest);
+        generate_permutations(current, n - 1, dest);
     }
 }
 
@@ -96,28 +96,21 @@ fn test_levenshtein_dfa_slow() {
         })
         .collect();
 
-    let mut alphabet = vec!['あ', 'b', 'ぃ', 'も', 'え'];
+    let mut alphabet = vec!['あ', 'b', 'ぃ', 'a', 'え'];
     let mut alternate_mappings = Vec::new();
-    permutate(&mut alphabet[..], 5, &mut alternate_mappings);
-
+    generate_permutations(&mut alphabet[..], 5, &mut alternate_mappings);
+    
     for mapping in &alternate_mappings {
         for left in test_sample.lefts() {
             let left = remap(mapping, &left);
             for m in 0..4u8 {
-                for mapping in &alternate_mappings {
-                    println!("---- {}", m);
-                    println!("left {:?}", left);
-                    let dfa = parametric_dfas[m as usize].build_dfa(&left);
-                    for right in test_sample.rights() {
-                        let right = remap(mapping, &right);
-                        println!("right {:?}", right);
-                        let expected = levenshtein::levenshtein(&left, &right) as u8;
-                        println!("expected {:?}", expected);
-                        let expected_distance = make_distance(expected, m);
-                        let result_distance = dfa.eval(&right);
-                        println!("result {:?}", result_distance);
-                        assert_eq!(expected_distance, result_distance);
-                    }
+                let dfa = parametric_dfas[m as usize].build_dfa(&left);
+                for right in test_sample.rights() {
+                    let right = remap(mapping, &right);
+                    let expected = levenshtein::levenshtein(&left, &right) as u8;
+                    let expected_distance = make_distance(expected, m);
+                    let result_distance = dfa.eval(&right);
+                    assert_eq!(expected_distance, result_distance);
                 }
             }
         }
@@ -134,7 +127,7 @@ fn test_levenshtein_parametric_dfa_slow() {
             ParametricDFA::from_nfa(&lev)
         })
         .collect();
-    let test_sample = TestSample::with_num_chars(7);
+    let test_sample = TestSample::with_num_chars(5);
     test_sample.each(|left, right| {
         let expected = levenshtein::levenshtein(left, right) as u8;
         for m in 0u8..4u8 {
@@ -216,9 +209,10 @@ fn test_levenshtein_dfa() {
 
 #[test]
 fn test_utf8_simple() {
-    let nfa = LevenshteinNFA::levenshtein(0, false);
+    let nfa = LevenshteinNFA::levenshtein(1, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_dfa("あ");
+    assert_eq!(dfa.eval("あ"), Distance::Exact(0u8));
     assert_eq!(dfa.eval("ぃ"), Distance::Exact(1u8));
 }
 
