@@ -49,6 +49,7 @@ pub struct DFA {
     initial_state: u32,
 }
 
+
 impl DFA {
     /// Returns the initial state
     pub fn initial_state(&self) -> u32 {
@@ -83,6 +84,32 @@ impl DFA {
     }
 }
 
+#[cfg(feature="fst_automaton")]
+use fst;
+#[cfg(feature="fst_automaton")]
+impl fst::Automaton for DFA {
+    type State = u32;
+
+    fn start(&self) -> u32 {
+        self.initial_state()
+    }
+
+    fn is_match(&self, state: &u32) -> bool {
+        if let Distance::Exact(d) = self.distance(*state) {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn can_match(&self, state: &u32) -> bool {
+        *state != SINK_STATE
+    }
+
+    fn accept(&self, state: &u32, byte: u8) -> u32 {
+        self.transition(*state, byte)
+    }
+}
 
 fn fill(dest: &mut [u32], val: u32) {
     for d in dest {
@@ -252,7 +279,7 @@ impl Utf8DFABuilder {
 
         Utf8DFAStateBuilder {
             dfa_builder: self,
-            state_id: state_id,
+            state_id,
             default_successor: predecessor_states,
         }
     }

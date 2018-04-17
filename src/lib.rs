@@ -36,6 +36,10 @@ I also tried to explain it in the following [blog post](https://fulmicoton.com/p
 
 #![cfg_attr(test, feature(test))]
 
+
+#[cfg(feature="fst_automaton")]
+extern crate fst;
+
 #[cfg(test)]
 extern crate test;
 #[cfg(test)]
