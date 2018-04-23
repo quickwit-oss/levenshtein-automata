@@ -24,9 +24,9 @@ pub const SINK_STATE: u32 = 0u32;
 /// # Usage
 ///
 /// ```rust
-/// # extern crate levenshtein_automaton;
-/// # use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
-/// # use levenshtein_automaton::SINK_STATE;
+/// # extern crate levenshtein_automata;
+/// # use levenshtein_automata::{LevenshteinAutomatonBuilder, Distance};
+/// # use levenshtein_automata::SINK_STATE;
 /// # fn main() {
 /// #   // Building this factory is not free.
 /// #   let lev_automaton_builder = LevenshteinAutomatonBuilder::new(2, true);

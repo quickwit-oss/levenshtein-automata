@@ -7,8 +7,8 @@ the levenshtein distance from a given string.
 # Example
 
 ```rust
-# extern crate levenshtein_automaton;
-use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
+# extern crate levenshtein_automata;
+use levenshtein_automata::{LevenshteinAutomatonBuilder, Distance};
 # fn main() {
 
 // Building this factory is not free.
