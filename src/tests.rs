@@ -34,6 +34,21 @@ fn test_levenshtein() {
     test_levenshtein_nfa_util("aab", "ab");
 }
 
+
+#[test]
+fn test_dead_state() {
+    let nfa = LevenshteinNFA::levenshtein(2, false);
+    let parametric_dfa = ParametricDFA::from_nfa(&nfa);
+    let dfa = parametric_dfa.build_dfa("abcdefghijklmnop");
+    let mut state = dfa.initial_state();
+    state = dfa.transition(state, b'X');
+    assert!(state != 0);
+    state = dfa.transition(state, b'X');
+    assert!(state != 0);
+    state = dfa.transition(state, b'X');
+    assert_eq!(state, 0);
+}
+
 #[test]
 #[ignore]
 fn test_levenshtein_nfa_slow() {
@@ -203,7 +218,7 @@ fn test_levenshtein_dfa() {
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_dfa("abcabcaaabc");
-    assert_eq!(dfa.num_states(), 317);
+    assert_eq!(dfa.num_states(), 273);
 }
 
 #[test]
