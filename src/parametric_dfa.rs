@@ -34,7 +34,13 @@ impl Transition {
     fn apply(&self, state: ParametricState) -> ParametricState {
         ParametricState {
             shape_id: self.dest_shape_id,
-            offset: state.offset + self.delta_offset,
+            offset:
+                if self.dest_shape_id == 0 {
+                    0 //< We don't need any offset if we are in the dead state.
+                      // This ensures we have only one dead state.
+                } else {
+                    state.offset + self.delta_offset
+                }
         }
     }
 }
