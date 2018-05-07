@@ -104,12 +104,31 @@ impl ParametricDFA {
         }
     }
 
-    pub fn num_states(&self) -> usize {
-        self.transitions.len() / self.transition_stride
+    // Returns true iff whatever characters come afterward, we will never reach
+    // a shorter distance
+    fn is_prefix_sink(&self, state: ParametricState, query_len: usize) -> bool {
+        if state.is_dead_end() {
+            return true;
+        }
+        let remaining_offset: usize = query_len - state.offset as usize;
+        if remaining_offset < self.diameter {
+            let state_distances = &self.distance[(self.diameter * state.shape_id as usize)..];
+            let prefix_distance = state_distances[remaining_offset];
+            if prefix_distance > self.max_distance {
+                return false;
+            }
+            for potential_distance in state_distances[..remaining_offset].iter().cloned() {
+                if potential_distance < prefix_distance {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
     }
 
-    pub fn build_dfa(&self, query: &str) -> DFA {
-
+    pub fn build_dfa(&self, query: &str, prefix: bool) -> DFA {
         let query_chars: Vec<char> = query.chars().collect();
         let query_len = query_chars.len();
         let alphabet = Alphabet::for_query_chars(&query_chars);
@@ -125,26 +144,36 @@ impl ParametricDFA {
         let mut dfa_builder = Utf8DFABuilder::with_max_num_states(max_num_states);
         let mask = (1 << self.diameter) - 1;
 
-        for state_id in 0.. {
-            if state_id == parametric_state_index.num_states() {
+        for state_id in 0u32.. {
+            if state_id == parametric_state_index.num_states() as u32 {
                 break;
             }
-            let state = parametric_state_index.get(state_id as u32);
-            let default_successor = self.transition(state, 0u32).apply(state);
-            let default_successor_id = parametric_state_index.get_or_allocate(default_successor);
-            let distance = self.distance(state, query_len);
-            let mut state_builder =
-                dfa_builder.add_state(state_id as u32, distance, default_successor_id);
-            for &(ref chr, ref characteristic_vec) in alphabet.iter() {
-                let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
-                let dest_state: ParametricState = self.transition(state, chi).apply(state);
-                let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
-                state_builder.add_transition(*chr, dest_state_id);
+            let state = parametric_state_index.get(state_id);
+            if prefix && self.is_prefix_sink(state, query_len) {
+                let default_successor_id = state_id;
+                let distance = self.distance(state, query_len);
+                dfa_builder.add_state(state_id, distance, default_successor_id);
+            } else {
+                let default_successor = self.transition(state, 0u32).apply(state);
+                let default_successor_id = parametric_state_index.get_or_allocate(default_successor);
+                let distance = self.distance(state, query_len);
+                let mut state_builder =
+                    dfa_builder.add_state(state_id, distance, default_successor_id);
+                for &(ref chr, ref characteristic_vec) in alphabet.iter() {
+                    let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
+                    let dest_state: ParametricState = self.transition(state, chi).apply(state);
+                    let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
+                    state_builder.add_transition(*chr, dest_state_id);
+                }
             }
         }
 
         dfa_builder.set_initial_state(initial_state_id);
         dfa_builder.build()
+    }
+
+    pub fn num_states(&self) -> usize {
+        self.transitions.len() / self.transition_stride
     }
 
     // only for debug
@@ -234,9 +263,9 @@ impl ParametricDFA {
 
         ParametricDFA {
             transition_stride: num_chi as usize,
-            distance: distance,
-            max_distance: max_distance,
-            transitions: transitions,
+            distance,
+            max_distance,
+            transitions,
             diameter: multistate_diameter as usize,
         }
     }

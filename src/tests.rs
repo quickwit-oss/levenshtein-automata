@@ -39,7 +39,7 @@ fn test_levenshtein() {
 fn test_dead_state() {
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa("abcdefghijklmnop");
+    let dfa = parametric_dfa.build_dfa("abcdefghijklmnop", false);
     let mut state = dfa.initial_state();
     state = dfa.transition(state, b'X');
     assert!(state != 0);
@@ -69,7 +69,7 @@ fn test_levenshtein_dfa_slow() {
 
     for left in test_sample.lefts() {
         for m in 0..4u8 {
-            let dfa = parametric_dfas[m as usize].build_dfa(&left);
+            let dfa = parametric_dfas[m as usize].build_dfa(&left, false);
             for right in test_sample.rights() {
                 let expected = levenshtein::levenshtein(&left, &right) as u8;
                 let expected_distance = make_distance(expected, m);
@@ -108,7 +108,7 @@ fn test_levenshtein_parametric_dfa_long() {
                     abcdefghijlmnopqrstuvwxyz\
                     abcdefghijlmnopqrstuvwxyz\
                     abcdefghijlmnopqrstuvwxyz";
-    let dfa = param_dfa.build_dfa(test_str);
+    let dfa = param_dfa.build_dfa(test_str, false);
     {
         let result_distance = dfa.eval(test_str);
         assert_eq!(result_distance, Distance::Exact(0));
@@ -217,7 +217,7 @@ fn test_damerau() {
 fn test_levenshtein_dfa() {
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa("abcabcaaabc");
+    let dfa = parametric_dfa.build_dfa("abcabcaaabc", false);
     assert_eq!(dfa.num_states(), 273);
 }
 
@@ -225,7 +225,7 @@ fn test_levenshtein_dfa() {
 fn test_utf8_simple() {
     let nfa = LevenshteinNFA::levenshtein(1, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa("あ");
+    let dfa = parametric_dfa.build_dfa("あ", false);
     assert_eq!(dfa.eval("あ"), Distance::Exact(0u8));
     assert_eq!(dfa.eval("ぃ"), Distance::Exact(1u8));
 }
@@ -235,7 +235,7 @@ fn test_simple() {
     let q: &str = "abcdef";
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa(q);
+    let dfa = parametric_dfa.build_dfa(q, false);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
     assert_eq!(dfa.eval("abcdf"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("abcdgf"), Distance::Exact(1u8));
@@ -243,11 +243,24 @@ fn test_simple() {
 }
 
 #[test]
+fn test_issue_3() {
+    let q: &str = "oreiller";
+    for &damerau in [false, true].iter() {
+        for i in 0..3 {
+            let nfa = LevenshteinNFA::levenshtein(i, damerau);
+            let parametric_dfa = ParametricDFA::from_nfa(&nfa);
+            let dfa = parametric_dfa.build_dfa(q, false);
+            assert_eq!(dfa.eval("oreiller"), Distance::Exact(0u8));
+        }
+    }
+}
+
+#[test]
 fn test_jp() {
     let q: &str = "寿司は焦げられない";
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa(q);
+    let dfa = parametric_dfa.build_dfa(q, false);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
     assert_eq!(dfa.eval("寿司は焦げられな"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("寿司は焦げられなI"), Distance::Exact(1u8));
@@ -262,6 +275,69 @@ fn test_jp2() {
     let q: &str = "寿a";
     let nfa = LevenshteinNFA::levenshtein(1, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    let dfa = parametric_dfa.build_dfa(q);
+    let dfa = parametric_dfa.build_dfa(q, false);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
+}
+
+#[test]
+fn test_prefix() {
+    let q: &str = "abc";
+    let nfa = LevenshteinNFA::levenshtein(0, false);
+    let parametric_dfa = ParametricDFA::from_nfa(&nfa);
+    let dfa = parametric_dfa.build_dfa(q, true);
+    assert_eq!(dfa.eval(q), Distance::Exact(0u8));
+    assert_eq!(dfa.eval(&"a"), Distance::AtLeast(1u8));
+    assert_eq!(dfa.eval(&"ab"), Distance::AtLeast(1u8));
+    for d in 3..10 {
+        assert_eq!(dfa.eval(&"abcdefghij"[..d]), Distance::Exact(0u8));
+    }
+}
+
+fn test_prefix_aux(param_dfa: &ParametricDFA, query: &str, test_str: &str, expected_distance: Distance) {
+        let dfa = param_dfa.build_dfa(query, true);
+        assert_eq!(dfa.eval(test_str), expected_distance, "test: {} query {}", query, test_str);
+}
+
+
+#[test]
+fn test_prefix_dfa_1_lev() {
+    let nfa = LevenshteinNFA::levenshtein(1, false);
+    let parametric_dfa_1_lev = ParametricDFA::from_nfa(&nfa);
+    test_prefix_aux(&parametric_dfa_1_lev, "a", "b", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "a", "abc", Distance::Exact(0));
+    test_prefix_aux(&parametric_dfa_1_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mas", "mars", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mas", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mass", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "masru", "marsupial", Distance::AtLeast(2));
+}
+
+#[test]
+fn test_prefix_dfa_2_lev() {
+    let nfa = LevenshteinNFA::levenshtein(2, false);
+    let parametric_dfa_2_lev = ParametricDFA::from_nfa(&nfa);
+    test_prefix_aux(&parametric_dfa_2_lev, "a", "b", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_2_lev, "a", "abc", Distance::Exact(0));
+    test_prefix_aux(&parametric_dfa_2_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_2_lev, "mas", "mars", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_2_lev, "rsup", "marsupial", Distance::Exact(2));
+    test_prefix_aux(&parametric_dfa_2_lev, "sup", "marsupial", Distance::AtLeast(3));
+    test_prefix_aux(&parametric_dfa_2_lev, "mas", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_2_lev, "mass", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_2_lev, "masru", "marsupial", Distance::Exact(2));
+    test_prefix_aux(&parametric_dfa_2_lev, "aaaaabaa", "aaaaaaa", Distance::Exact(1));
+}
+
+
+#[test]
+fn test_prefix_dfa_1_damerau() {
+    let nfa = LevenshteinNFA::levenshtein(1, true);
+    let parametric_dfa_1_lev = ParametricDFA::from_nfa(&nfa);
+    test_prefix_aux(&parametric_dfa_1_lev, "a", "b", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "a", "abc", Distance::Exact(0));
+    test_prefix_aux(&parametric_dfa_1_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mas", "mars", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mas", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "mass", "marsupial", Distance::Exact(1));
+    test_prefix_aux(&parametric_dfa_1_lev, "masru", "marsupial", Distance::Exact(1));
 }

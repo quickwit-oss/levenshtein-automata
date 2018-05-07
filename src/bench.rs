@@ -6,49 +6,49 @@ use super::{ParametricDFA, LevenshteinNFA};
 fn bench_build_dfa_distance1_no_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(1, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance2_no_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(2, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance3_no_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(3, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance4_no_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(4, false);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance1_with_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(1, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance2_with_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(2, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
 fn bench_build_dfa_distance3_with_transpose(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(3, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
 
 #[bench]
@@ -98,5 +98,5 @@ fn bench_build_parametricdfa_damerau_perf_1(b: &mut Bencher) {
 fn bench_build_parametricdfa_damerau_perf_2_profile(b: &mut Bencher) {
     let nfa = LevenshteinNFA::levenshtein(2, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
-    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein"); });
+    b.iter(|| { let _dfa = parametric_dfa.build_dfa("Levenshtein", false); });
 }
