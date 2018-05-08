@@ -2,6 +2,14 @@
 name = "levenshtein_automata"
 version = "0.1.0"
 authors = ["Paul Masurel <paul.masurel@gmail.com>"]
+license = "MIT"
+categories = ["text-processing"]
+description = """Creates Levenshtein Automata in an efficient manner."""
+documentation = "https://docs.rs/levenshtein-automata/"
+homepage = "https://github.com/tantivy-search/levenshtein-automata"
+repository = "https://github.com/tantivy-search/levenshtein-automata"
+readme = "README.md"
+keywords = ["levenshtein", "automaton", "automata", "fuzzy"]
 
 [dependencies]
 fst = {version="0.3", optional=true, default-features=false}
