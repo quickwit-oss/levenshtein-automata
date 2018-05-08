@@ -6,26 +6,25 @@ the levenshtein distance from a given string.
 # Example
 
 ```rust
-# extern crate levenshtein_automaton;
+extern crate levenshtein_automata;
 
-# use levenshtein_automaton::{LevenshteinAutomatonBuilder, Distance};
+use levenshtein_automata::{LevenshteinAutomatonBuilder, Distance};
 
-# fn main() {
+fn main() {
 
     // Building this factory is not free.
-    // It can be reused for sub
     let lev_automaton_builder = LevenshteinAutomatonBuilder::new(2, true);
 
     // We can now build an entire dfa.
-    let dfa = lev_automaton_builder.build_dfa("saucisson sec");
+    let dfa = lev_automaton_builder.build_dfa("Levenshtein");
 
     let mut state = dfa.initial_state();
-        for &b in "saucissonsec".as_bytes() {
+    for &b in "Levenshtain".as_bytes() {
         state = dfa.transition(state, b);
     }
 
-   assert_eq!(dfa.distance(state), Distance::Exact(1));
-# }
+    assert_eq!(dfa.distance(state), Distance::Exact(1));
+}
 ```
 
 The implementation is based on the following paper
