@@ -1,6 +1,6 @@
-use std::hash::Hash;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 pub(crate) struct Index<I: Eq + Hash + Clone> {
     index: HashMap<I, u32>,

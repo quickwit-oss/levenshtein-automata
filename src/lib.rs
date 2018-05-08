@@ -34,36 +34,34 @@ I also tried to explain it in the following [blog post](https://fulmicoton.com/p
 
 #![cfg_attr(test, feature(test))]
 
-
-#[cfg(feature="fst_automaton")]
+#[cfg(feature = "fst_automaton")]
 extern crate fst;
 
 #[cfg(test)]
 extern crate test;
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod bench;
+#[cfg(test)]
+mod tests;
 
-
-mod parametric_dfa;
 mod alphabet;
-mod levenshtein_nfa;
 mod dfa;
 mod index;
+mod levenshtein_nfa;
+mod parametric_dfa;
 
+pub use self::dfa::{DFA, SINK_STATE};
 use self::index::Index;
+pub use self::levenshtein_nfa::Distance;
 use self::levenshtein_nfa::LevenshteinNFA;
 use self::parametric_dfa::ParametricDFA;
-pub use self::dfa::{DFA, SINK_STATE};
-pub use self::levenshtein_nfa::Distance;
 
 /// Builder for Levenshtein Automata.
 ///
 /// It wraps a precomputed datastructure that allows to
 /// produce small (but not minimal) DFA.
 pub struct LevenshteinAutomatonBuilder {
-    parametric_dfa: ParametricDFA
+    parametric_dfa: ParametricDFA,
 }
 
 impl LevenshteinAutomatonBuilder {
@@ -76,11 +74,12 @@ impl LevenshteinAutomatonBuilder {
     /// Building this automaton builder is computationally intensive.
     /// While it takes only a few milliseconds for `d=2`, it grows exponentially with
     /// `d`. It is only reasonable to `d <= 5`.
-    pub fn new(max_distance: u8,
-               transposition_cost_one: bool) -> LevenshteinAutomatonBuilder {
+    pub fn new(max_distance: u8, transposition_cost_one: bool) -> LevenshteinAutomatonBuilder {
         let levenshtein_nfa = LevenshteinNFA::levenshtein(max_distance, transposition_cost_one);
         let parametric_dfa = ParametricDFA::from_nfa(&levenshtein_nfa);
-        LevenshteinAutomatonBuilder { parametric_dfa: parametric_dfa }
+        LevenshteinAutomatonBuilder {
+            parametric_dfa: parametric_dfa,
+        }
     }
 
     /// Builds a Finite Determinstic Automaton to compute

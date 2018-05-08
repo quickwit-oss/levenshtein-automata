@@ -61,7 +61,6 @@ impl MultiState {
     }
 }
 
-
 /// Levenshtein Distance computed by a Levenshtein Automaton.
 ///
 /// Levenshtein automata can only compute the exact Levenshtein distance
@@ -87,8 +86,7 @@ impl Distance {
     /// ```
     pub fn to_u8(&self) -> u8 {
         match *self {
-            Distance::Exact(d) |
-            Distance::AtLeast(d) => d,
+            Distance::Exact(d) | Distance::AtLeast(d) => d,
         }
     }
 }
@@ -282,6 +280,5 @@ impl NFAState {
         } else {
             u32::from(other.distance) > u32::from(self.distance) + delta_offset
         }
-
     }
 }

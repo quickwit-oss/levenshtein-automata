@@ -1,7 +1,7 @@
 extern crate levenshtein;
 
 use std::collections::HashSet;
-use {ParametricDFA, LevenshteinNFA, Distance};
+use {Distance, LevenshteinNFA, ParametricDFA};
 
 fn make_distance(n: u8, max_distance: u8) -> Distance {
     if n > max_distance {
@@ -20,12 +20,10 @@ fn test_levenshtein_nfa_util(left: &str, right: &str) {
     }
 }
 
-
 fn test_symmetric(lev: &LevenshteinNFA, left: &str, right: &str, expected: Distance) {
     assert_eq!(lev.compute_distance(left, right), expected);
     assert_eq!(lev.compute_distance(right, left), expected);
 }
-
 
 #[test]
 fn test_levenshtein() {
@@ -33,7 +31,6 @@ fn test_levenshtein() {
     test_levenshtein_nfa_util("abc", "abcd");
     test_levenshtein_nfa_util("aab", "ab");
 }
-
 
 #[test]
 fn test_dead_state() {
@@ -115,21 +112,20 @@ fn test_levenshtein_parametric_dfa_long() {
     }
     {
         let test_str = "abcdefghijlmnopqrstuvwxyz\
-                    abcdefghijlnopqrstuvwxyz\
-                    abcdefghijlmnopqrstuvwxyz\
-                    abcdefghijlmnopqrstuvwxyz";
+                        abcdefghijlnopqrstuvwxyz\
+                        abcdefghijlmnopqrstuvwxyz\
+                        abcdefghijlmnopqrstuvwxyz";
         let result_distance = dfa.eval(test_str);
         assert_eq!(result_distance, Distance::Exact(1));
     }
     {
         let test_str = "abcdefghijlmnopqrstuvwxyz\
-                    abcdefghijlnopqrstuvwxyz\
-                    abcdefghijlmnoprqstuvwxyz\
-                    abcdefghijlmnopqrstuvwxyz";
+                        abcdefghijlnopqrstuvwxyz\
+                        abcdefghijlmnoprqstuvwxyz\
+                        abcdefghijlmnopqrstuvwxyz";
         let result_distance = dfa.eval(test_str);
         assert_eq!(result_distance, Distance::Exact(2));
     }
-
 }
 
 fn combinations(alphabet: &[char], len: usize) -> Vec<String> {
@@ -140,9 +136,8 @@ fn combinations(alphabet: &[char], len: usize) -> Vec<String> {
             .iter()
             .cloned()
             .flat_map(|letter: char| {
-                prev.iter().map(
-                    move |prefix| format!("{}{}", prefix, letter),
-                )
+                prev.iter()
+                    .map(move |prefix| format!("{}{}", prefix, letter))
             })
             .collect();
         result.extend_from_slice(&prev[..]);
@@ -293,11 +288,21 @@ fn test_prefix() {
     }
 }
 
-fn test_prefix_aux(param_dfa: &ParametricDFA, query: &str, test_str: &str, expected_distance: Distance) {
-        let dfa = param_dfa.build_dfa(query, true);
-        assert_eq!(dfa.eval(test_str), expected_distance, "test: {} query {}", query, test_str);
+fn test_prefix_aux(
+    param_dfa: &ParametricDFA,
+    query: &str,
+    test_str: &str,
+    expected_distance: Distance,
+) {
+    let dfa = param_dfa.build_dfa(query, true);
+    assert_eq!(
+        dfa.eval(test_str),
+        expected_distance,
+        "test: {} query {}",
+        query,
+        test_str
+    );
 }
-
 
 #[test]
 fn test_prefix_dfa_1_lev() {
@@ -305,11 +310,31 @@ fn test_prefix_dfa_1_lev() {
     let parametric_dfa_1_lev = ParametricDFA::from_nfa(&nfa);
     test_prefix_aux(&parametric_dfa_1_lev, "a", "b", Distance::Exact(1));
     test_prefix_aux(&parametric_dfa_1_lev, "a", "abc", Distance::Exact(0));
-    test_prefix_aux(&parametric_dfa_1_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "masup",
+        "marsupial",
+        Distance::Exact(1),
+    );
     test_prefix_aux(&parametric_dfa_1_lev, "mas", "mars", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "mas", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "mass", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "masru", "marsupial", Distance::AtLeast(2));
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "mas",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "mass",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "masru",
+        "marsupial",
+        Distance::AtLeast(2),
+    );
 }
 
 #[test]
@@ -318,16 +343,50 @@ fn test_prefix_dfa_2_lev() {
     let parametric_dfa_2_lev = ParametricDFA::from_nfa(&nfa);
     test_prefix_aux(&parametric_dfa_2_lev, "a", "b", Distance::Exact(1));
     test_prefix_aux(&parametric_dfa_2_lev, "a", "abc", Distance::Exact(0));
-    test_prefix_aux(&parametric_dfa_2_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "masup",
+        "marsupial",
+        Distance::Exact(1),
+    );
     test_prefix_aux(&parametric_dfa_2_lev, "mas", "mars", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_2_lev, "rsup", "marsupial", Distance::Exact(2));
-    test_prefix_aux(&parametric_dfa_2_lev, "sup", "marsupial", Distance::AtLeast(3));
-    test_prefix_aux(&parametric_dfa_2_lev, "mas", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_2_lev, "mass", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_2_lev, "masru", "marsupial", Distance::Exact(2));
-    test_prefix_aux(&parametric_dfa_2_lev, "aaaaabaa", "aaaaaaa", Distance::Exact(1));
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "rsup",
+        "marsupial",
+        Distance::Exact(2),
+    );
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "sup",
+        "marsupial",
+        Distance::AtLeast(3),
+    );
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "mas",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "mass",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "masru",
+        "marsupial",
+        Distance::Exact(2),
+    );
+    test_prefix_aux(
+        &parametric_dfa_2_lev,
+        "aaaaabaa",
+        "aaaaaaa",
+        Distance::Exact(1),
+    );
 }
-
 
 #[test]
 fn test_prefix_dfa_1_damerau() {
@@ -335,9 +394,29 @@ fn test_prefix_dfa_1_damerau() {
     let parametric_dfa_1_lev = ParametricDFA::from_nfa(&nfa);
     test_prefix_aux(&parametric_dfa_1_lev, "a", "b", Distance::Exact(1));
     test_prefix_aux(&parametric_dfa_1_lev, "a", "abc", Distance::Exact(0));
-    test_prefix_aux(&parametric_dfa_1_lev, "masup", "marsupial", Distance::Exact(1));
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "masup",
+        "marsupial",
+        Distance::Exact(1),
+    );
     test_prefix_aux(&parametric_dfa_1_lev, "mas", "mars", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "mas", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "mass", "marsupial", Distance::Exact(1));
-    test_prefix_aux(&parametric_dfa_1_lev, "masru", "marsupial", Distance::Exact(1));
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "mas",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "mass",
+        "marsupial",
+        Distance::Exact(1),
+    );
+    test_prefix_aux(
+        &parametric_dfa_1_lev,
+        "masru",
+        "marsupial",
+        Distance::Exact(1),
+    );
 }

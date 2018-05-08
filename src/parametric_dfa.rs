@@ -1,9 +1,8 @@
-use super::dfa::{DFA, Utf8DFABuilder};
-use super::Index;
+use super::alphabet::Alphabet;
+use super::dfa::{Utf8DFABuilder, DFA};
 use super::levenshtein_nfa::Distance;
 use super::levenshtein_nfa::{LevenshteinNFA, MultiState};
-use super::alphabet::Alphabet;
-
+use super::Index;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ParametricState {
@@ -23,7 +22,6 @@ impl ParametricState {
     }
 }
 
-
 #[derive(Clone, Copy)]
 pub struct Transition {
     dest_shape_id: u32,
@@ -34,17 +32,15 @@ impl Transition {
     fn apply(&self, state: ParametricState) -> ParametricState {
         ParametricState {
             shape_id: self.dest_shape_id,
-            offset:
-                if self.dest_shape_id == 0 {
-                    0 //< We don't need any offset if we are in the dead state.
-                      // This ensures we have only one dead state.
-                } else {
-                    state.offset + self.delta_offset
-                }
+            offset: if self.dest_shape_id == 0 {
+                0 //< We don't need any offset if we are in the dead state.
+                  // This ensures we have only one dead state.
+            } else {
+                state.offset + self.delta_offset
+            },
         }
     }
 }
-
 
 struct ParametricStateIndex {
     state_index: Vec<Option<u32>>,
@@ -72,8 +68,8 @@ impl ParametricStateIndex {
     }
 
     fn get_or_allocate(&mut self, parametric_state: ParametricState) -> u32 {
-        let bucket = (parametric_state.shape_id as usize) * self.num_offsets +
-            parametric_state.offset as usize;
+        let bucket = (parametric_state.shape_id as usize) * self.num_offsets
+            + parametric_state.offset as usize;
         if let Some(state_id) = self.state_index[bucket] {
             return state_id;
         }
@@ -155,7 +151,8 @@ impl ParametricDFA {
                 dfa_builder.add_state(state_id, distance, default_successor_id);
             } else {
                 let default_successor = self.transition(state, 0u32).apply(state);
-                let default_successor_id = parametric_state_index.get_or_allocate(default_successor);
+                let default_successor_id =
+                    parametric_state_index.get_or_allocate(default_successor);
                 let distance = self.distance(state, query_len);
                 let mut state_builder =
                     dfa_builder.add_state(state_id, distance, default_successor_id);
@@ -214,9 +211,7 @@ impl ParametricDFA {
         self.transitions[self.transition_stride * state.shape_id as usize + chi as usize]
     }
 
-
     pub fn from_nfa(nfa: &LevenshteinNFA) -> ParametricDFA {
-
         let mut index: Index<MultiState> = Index::new();
         index.get_or_allocate(&MultiState::empty());
         let initial_state = nfa.initial_states();

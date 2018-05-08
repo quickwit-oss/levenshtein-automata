@@ -1,6 +1,5 @@
 use std::slice;
 
-
 #[derive(Clone)]
 pub struct FullCharacteristicVector(Vec<u32>);
 
@@ -55,7 +54,6 @@ impl Alphabet {
         Alphabet { charset: charset }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
