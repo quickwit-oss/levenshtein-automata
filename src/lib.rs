@@ -112,3 +112,4 @@ impl LevenshteinAutomatonBuilder {
         self.parametric_dfa.build_dfa(query, true)
     }
 }
+
