@@ -12,7 +12,7 @@ readme = "README.md"
 keywords = ["levenshtein", "automaton", "automata", "fuzzy"]
 
 [dependencies]
-fst = {version="0.3", optional=true, default-features=false}
+fst = {version="0.4", optional=true, default-features=false}
 
 [dev-dependencies]
 levenshtein = "1.0"
