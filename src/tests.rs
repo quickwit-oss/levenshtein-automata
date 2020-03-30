@@ -1,7 +1,5 @@
-extern crate levenshtein;
-
 use std::collections::HashSet;
-use {Distance, LevenshteinNFA, ParametricDFA};
+use crate::{Distance, LevenshteinNFA, ParametricDFA};
 
 fn make_distance(n: u8, max_distance: u8) -> Distance {
     if n > max_distance {

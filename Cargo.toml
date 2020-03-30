@@ -1,7 +1,8 @@
 [package]
 name = "levenshtein_automata"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Paul Masurel <paul.masurel@gmail.com>"]
+edition = "2018"
 license = "MIT"
 categories = ["text-processing"]
 description = """Creates Levenshtein Automata in an efficient manner."""
@@ -12,7 +13,7 @@ readme = "README.md"
 keywords = ["levenshtein", "automaton", "automata", "fuzzy"]
 
 [dependencies]
-fst = {version="0.3", optional=true, default-features=false}
+fst = {version="0.4", optional=true, default-features=false}
 
 [dev-dependencies]
 levenshtein = "1.0"
