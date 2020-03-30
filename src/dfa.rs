@@ -148,7 +148,8 @@ impl<'a> Utf8DFAStateBuilder<'a> {
             from_state_id_decoded = intermediary_state_id;
         }
 
-        let to_state_id_decoded = self.dfa_builder
+        let to_state_id_decoded = self
+            .dfa_builder
             .get_or_allocate(Utf8StateId::original(to_state_id));
         self.add_transition_id(
             from_state_id_decoded,

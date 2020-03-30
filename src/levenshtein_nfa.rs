@@ -30,7 +30,8 @@ impl MultiState {
     }
 
     pub fn normalize(&mut self) -> u32 {
-        let min_offset: u32 = self.states
+        let min_offset: u32 = self
+            .states
             .iter()
             .map(|state| state.offset)
             .min()

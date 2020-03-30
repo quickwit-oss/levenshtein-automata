@@ -1,7 +1,5 @@
-extern crate levenshtein;
-
+use crate::{Distance, LevenshteinNFA, ParametricDFA};
 use std::collections::HashSet;
-use {Distance, LevenshteinNFA, ParametricDFA};
 
 fn make_distance(n: u8, max_distance: u8) -> Distance {
     if n > max_distance {
@@ -259,10 +257,7 @@ fn test_jp() {
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
     assert_eq!(dfa.eval("寿司は焦げられな"), Distance::Exact(1u8));
     assert_eq!(dfa.eval("寿司は焦げられなI"), Distance::Exact(1u8));
-    assert_eq!(
-        dfa.eval("寿司は焦げられなIい"),
-        Distance::Exact(1u8)
-    );
+    assert_eq!(dfa.eval("寿司は焦げられなIい"), Distance::Exact(1u8));
 }
 
 #[test]
