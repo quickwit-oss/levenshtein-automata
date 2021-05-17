@@ -283,6 +283,19 @@ fn test_prefix() {
     }
 }
 
+#[test]
+fn test_applied_distance() {
+    let q: &str = "abcde";
+    let nfa = LevenshteinNFA::levenshtein(1, true);
+    let parametric_dfa = ParametricDFA::from_nfa(&nfa);
+    let dfa = parametric_dfa.build_custom_dfa(q, true, true);
+    assert_eq!(dfa.eval(&"abcde"), Distance::Exact(0u8));
+    assert_eq!(dfa.eval(&"abcd"), Distance::Exact(0u8));
+    assert_eq!(dfa.eval(&"abde"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval(&"abdce"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval(&"abbbb"), Distance::AtLeast(2u8));
+}
+
 fn test_prefix_aux(
     param_dfa: &ParametricDFA,
     query: &str,

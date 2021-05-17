@@ -124,7 +124,18 @@ impl ParametricDFA {
         }
     }
 
+    /// Builds a [DFA] for the given query. If `prefix` is set to `true`, the resulting
+    /// DFA will match whenever the `query` is a prefix of the input being processed.
     pub fn build_dfa(&self, query: &str, prefix: bool) -> DFA {
+        self.build_custom_dfa(query, prefix, false)
+    }
+
+    /// Builds a [DFA] for the given query. If `prefix` is set to `true`, the resulting
+    /// DFA will match whenever the `query` is a prefix of the input being processed.
+    /// If `use_applied_distance` is set to `true`, the distance being reported isn't the
+    /// "absolute distance" for the query but rather the distance (number of edits) which
+    /// have been applied so far.
+    pub fn build_custom_dfa(&self, query: &str, prefix: bool, use_applied_distance: bool) -> DFA {
         let query_chars: Vec<char> = query.chars().collect();
         let query_len = query_chars.len();
         let alphabet = Alphabet::for_query_chars(&query_chars);
@@ -145,15 +156,18 @@ impl ParametricDFA {
                 break;
             }
             let state = parametric_state_index.get(state_id);
+            let distance = if use_applied_distance {
+                self.applied_distance(state)
+            } else {
+                self.distance(state, query_len)
+            };
+
             if prefix && self.is_prefix_sink(state, query_len) {
-                let default_successor_id = state_id;
-                let distance = self.distance(state, query_len);
-                dfa_builder.add_state(state_id, distance, default_successor_id);
+                dfa_builder.add_state(state_id, distance, state_id);
             } else {
                 let default_successor = self.transition(state, 0u32).apply(state);
                 let default_successor_id =
                     parametric_state_index.get_or_allocate(default_successor);
-                let distance = self.distance(state, query_len);
                 let mut state_builder =
                     dfa_builder.add_state(state_id, distance, default_successor_id);
                 for &(ref chr, ref characteristic_vec) in alphabet.iter() {
@@ -203,6 +217,15 @@ impl ParametricDFA {
             } else {
                 Distance::Exact(d)
             }
+        }
+    }
+
+    pub fn applied_distance(&self, state: ParametricState) -> Distance {
+        let d = self.distance[self.diameter * state.shape_id as usize];
+        if d > self.max_distance {
+            Distance::AtLeast(d)
+        } else {
+            Distance::Exact(d)
         }
     }
 
