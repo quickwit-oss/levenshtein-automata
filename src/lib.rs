@@ -80,7 +80,7 @@ impl LevenshteinAutomatonBuilder {
         }
     }
 
-    /// Builds a Finite Determinstic Automaton to compute
+    /// Builds a Finite Deterministic Automaton to compute
     /// the levenshtein distance to a fixed given `query`.
     ///
     /// There is no guarantee that the resulting DFA is minimal
@@ -94,7 +94,7 @@ impl LevenshteinAutomatonBuilder {
         self.parametric_dfa.build_dfa(query, false)
     }
 
-    /// Builds a Finite Determinstic Automaton that computes
+    /// Builds a Finite Deterministic Automaton that computes
     /// the prefix levenshtein distance to a given `query`.
     ///
     /// Given a test string, the resulting distance is defined as
@@ -108,5 +108,14 @@ impl LevenshteinAutomatonBuilder {
     /// See also [.build_dfa(...)](./struct.LevenshteinAutomatonBuilder.html#method.build_dfa).
     pub fn build_prefix_dfa(&self, query: &str) -> DFA {
         self.parametric_dfa.build_dfa(query, true)
+    }
+
+    /// Builds a Finite Deterministic Automaton that computes the actually applied edit distance
+    /// for a given query.
+    ///
+    /// This can be used to compute partial matches. In this case [DFA::offset] can be used to
+    /// determine the number of accepted / consumed characters.
+    pub fn build_applied_distance_dfa(&self, query: &str) -> DFA {
+        self.parametric_dfa.build_custom_dfa(query, false, true)
     }
 }

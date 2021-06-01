@@ -45,6 +45,7 @@ pub const SINK_STATE: u32 = 0u32;
 pub struct DFA {
     transitions: Vec<[u32; 256]>,
     distances: Vec<Distance>,
+    offsets: Vec<u32>,
     initial_state: u32,
 }
 
@@ -79,6 +80,14 @@ impl DFA {
     /// Returns the destination state reached after consuming a given byte.
     pub fn transition(&self, from_state_id: u32, b: u8) -> u32 {
         self.transitions[from_state_id as usize][b as usize]
+    }
+
+    /// Returns the offset (number of chars consumed) for a given state.
+    ///
+    /// This is mainly of interest when using [LevenshteinAutomatonBuilder::build_applied_distance_dfa]
+    /// as
+    pub fn offset(&self, state_id: u32) -> u32 {
+        self.offsets[state_id as usize]
     }
 }
 
@@ -165,6 +174,7 @@ impl<'a> Utf8DFAStateBuilder<'a> {
 pub struct Utf8DFABuilder {
     index: Vec<Option<u32>>,
     distances: Vec<Distance>,
+    offsets: Vec<u32>,
     transitions: Vec<[u32; 256]>,
     initial_state: u32,
     num_states: u32,
@@ -193,6 +203,7 @@ impl Utf8DFABuilder {
             index: vec![None; max_num_states * 4 + 3],
             distances: Vec::with_capacity(100),
             transitions: Vec::with_capacity(100),
+            offsets: Vec::with_capacity(100),
             initial_state: 0u32,
             num_states: 0u32,
             max_num_states: max_num_states as u32,
@@ -203,8 +214,9 @@ impl Utf8DFABuilder {
         let new_state = self.num_states;
         self.num_states += 1;
         self.distances
-            .resize(new_state as usize + 1, Distance::AtLeast(255));
+            .resize(new_state as usize + 1, Distance::AtLeast(u8::MAX));
         self.transitions.resize(new_state as usize + 1, [0u32; 256]);
+        self.offsets.resize(new_state as usize + 1, u32::MAX);
         new_state
     }
 
@@ -228,6 +240,7 @@ impl Utf8DFABuilder {
         &mut self,
         state: u32,
         distance: Distance,
+        offset: u32,
         default_successor_orig: u32,
     ) -> Utf8DFAStateBuilder {
         assert!(
@@ -236,6 +249,7 @@ impl Utf8DFABuilder {
         );
         let state_id = self.get_or_allocate(Utf8StateId::original(state));
         self.distances[state_id as usize] = distance;
+        self.offsets[state_id as usize] = offset;
 
         let default_successor_id =
             self.get_or_allocate(Utf8StateId::original(default_successor_orig));
@@ -279,6 +293,7 @@ impl Utf8DFABuilder {
         DFA {
             transitions: self.transitions,
             distances: self.distances,
+            offsets: self.offsets,
             initial_state: self.initial_state,
         }
     }
@@ -293,8 +308,8 @@ mod tests {
     #[test]
     fn test_utf8_dfa_builder() {
         let mut dfa_builder = Utf8DFABuilder::with_max_num_states(2);
-        dfa_builder.add_state(0, Distance::Exact(1u8), 1);
-        dfa_builder.add_state(1, Distance::Exact(0u8), 0);
+        dfa_builder.add_state(0, Distance::Exact(1u8), 0, 1);
+        dfa_builder.add_state(1, Distance::Exact(0u8), 0, 0);
         dfa_builder.set_initial_state(1u32);
         let dfa = dfa_builder.build();
         let parity_num_letters = |s: &str| dfa.eval(s).to_u8();
