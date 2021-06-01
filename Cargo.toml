@@ -1,6 +1,6 @@
 [package]
 name = "levenshtein_automata"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Paul Masurel <paul.masurel@gmail.com>"]
 edition = "2018"
 license = "MIT"
