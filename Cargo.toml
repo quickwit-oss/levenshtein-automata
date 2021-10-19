@@ -7,8 +7,8 @@ license = "MIT"
 categories = ["text-processing"]
 description = """Creates Levenshtein Automata in an efficient manner."""
 documentation = "https://docs.rs/levenshtein-automata/"
-homepage = "https://github.com/tantivy-search/levenshtein-automata"
-repository = "https://github.com/tantivy-search/levenshtein-automata"
+homepage = "https://github.com/quickwit-inc/levenshtein-automata"
+repository = "https://github.com/quickwit-inc/levenshtein-automata"
 readme = "README.md"
 keywords = ["levenshtein", "automaton", "automata", "fuzzy"]
 
