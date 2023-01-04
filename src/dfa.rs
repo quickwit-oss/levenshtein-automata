@@ -42,6 +42,7 @@ pub const SINK_STATE: u32 = 0u32;
 /// let distance = dfa.distance(state);
 /// # }
 //```
+#[derive(Clone)]
 pub struct DFA {
     transitions: Vec<[u32; 256]>,
     distances: Vec<Distance>,

@@ -58,6 +58,7 @@ use self::parametric_dfa::ParametricDFA;
 ///
 /// It wraps a precomputed datastructure that allows to
 /// produce small (but not minimal) DFA.
+#[derive(Clone)]
 pub struct LevenshteinAutomatonBuilder {
     parametric_dfa: ParametricDFA,
 }

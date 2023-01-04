@@ -84,6 +84,7 @@ impl ParametricStateIndex {
     }
 }
 
+#[derive(Clone)]
 pub struct ParametricDFA {
     distance: Vec<u8>,
     transitions: Vec<Transition>,
