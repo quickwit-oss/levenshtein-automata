@@ -55,7 +55,7 @@ impl ParametricStateIndex {
         ParametricStateIndex {
             state_index: vec![None; max_num_states],
             state_queue: Vec::with_capacity(100),
-            num_offsets: num_offsets,
+            num_offsets,
         }
     }
 
@@ -170,7 +170,7 @@ impl ParametricDFA {
                     parametric_state_index.get_or_allocate(default_successor);
                 let mut state_builder =
                     dfa_builder.add_state(state_id, distance, default_successor_id);
-                for &(ref chr, ref characteristic_vec) in alphabet.iter() {
+                for (chr, characteristic_vec) in alphabet.iter() {
                     let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                     let dest_state: ParametricState = self.transition(state, chi).apply(state);
                     let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
@@ -284,7 +284,7 @@ impl ParametricDFA {
             distance,
             max_distance,
             transitions,
-            diameter: multistate_diameter as usize,
+            diameter: multistate_diameter,
         }
     }
 }
