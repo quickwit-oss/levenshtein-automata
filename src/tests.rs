@@ -64,11 +64,11 @@ fn test_levenshtein_dfa_slow() {
 
     for left in test_sample.lefts() {
         for m in 0..4u8 {
-            let dfa = parametric_dfas[m as usize].build_dfa(&left, false);
+            let dfa = parametric_dfas[m as usize].build_dfa(left, false);
             for right in test_sample.rights() {
-                let expected = levenshtein::levenshtein(&left, &right) as u8;
+                let expected = levenshtein::levenshtein(left, right) as u8;
                 let expected_distance = make_distance(expected, m);
-                let result_distance = dfa.eval(&right);
+                let result_distance = dfa.eval(right);
                 assert_eq!(expected_distance, result_distance);
             }
         }
@@ -276,8 +276,8 @@ fn test_prefix() {
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_dfa(q, true);
     assert_eq!(dfa.eval(q), Distance::Exact(0u8));
-    assert_eq!(dfa.eval(&"a"), Distance::AtLeast(1u8));
-    assert_eq!(dfa.eval(&"ab"), Distance::AtLeast(1u8));
+    assert_eq!(dfa.eval("a"), Distance::AtLeast(1u8));
+    assert_eq!(dfa.eval("ab"), Distance::AtLeast(1u8));
     for d in 3..10 {
         assert_eq!(dfa.eval(&"abcdefghij"[..d]), Distance::Exact(0u8));
     }
@@ -289,11 +289,11 @@ fn test_applied_distance() {
     let nfa = LevenshteinNFA::levenshtein(1, true);
     let parametric_dfa = ParametricDFA::from_nfa(&nfa);
     let dfa = parametric_dfa.build_custom_dfa(q, true, true);
-    assert_eq!(dfa.eval(&"abcde"), Distance::Exact(0u8));
-    assert_eq!(dfa.eval(&"abcd"), Distance::Exact(0u8));
-    assert_eq!(dfa.eval(&"abde"), Distance::Exact(1u8));
-    assert_eq!(dfa.eval(&"abdce"), Distance::Exact(1u8));
-    assert_eq!(dfa.eval(&"abbbb"), Distance::AtLeast(2u8));
+    assert_eq!(dfa.eval("abcde"), Distance::Exact(0u8));
+    assert_eq!(dfa.eval("abcd"), Distance::Exact(0u8));
+    assert_eq!(dfa.eval("abde"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval("abdce"), Distance::Exact(1u8));
+    assert_eq!(dfa.eval("abbbb"), Distance::AtLeast(2u8));
 }
 
 fn test_prefix_aux(

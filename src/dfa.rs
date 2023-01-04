@@ -42,6 +42,7 @@ pub const SINK_STATE: u32 = 0u32;
 /// let distance = dfa.distance(state);
 /// # }
 //```
+#[derive(Clone)]
 pub struct DFA {
     transitions: Vec<[u32; 256]>,
     distances: Vec<Distance>,
@@ -133,7 +134,7 @@ impl<'a> Utf8DFAStateBuilder<'a> {
         let bytes: &[u8] = chr.encode_utf8(&mut buffer).as_bytes();
         let mut from_state_id_decoded = self.state_id;
         for (i, b) in bytes[..bytes.len() - 1].iter().cloned().enumerate() {
-            let remaining_num_bytes = bytes.len() - i as usize - 1 as usize;
+            let remaining_num_bytes = bytes.len() - i - 1;
             let default_successor = self.default_successor[remaining_num_bytes];
             let mut intermediary_state_id: u32 =
                 self.dfa_builder.transitions[from_state_id_decoded as usize][b as usize];
