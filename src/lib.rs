@@ -76,7 +76,7 @@ impl LevenshteinAutomatonBuilder {
         let levenshtein_nfa = LevenshteinNFA::levenshtein(max_distance, transposition_cost_one);
         let parametric_dfa = ParametricDFA::from_nfa(&levenshtein_nfa);
         LevenshteinAutomatonBuilder {
-            parametric_dfa: parametric_dfa,
+            parametric_dfa,
         }
     }
 

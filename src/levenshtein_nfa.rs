@@ -3,8 +3,8 @@ use std::cmp::Ordering;
 #[cfg(test)]
 pub fn compute_characteristic_vector(query: &[char], c: char) -> u64 {
     let mut chi = 0u64;
-    for i in 0..query.len() {
-        if query[i] == c {
+    for (i, qc) in query.iter().enumerate() {
+        if *qc == c {
             chi |= 1u64 << i;
         }
     }
@@ -145,7 +145,7 @@ fn dist(left: u32, right: u32) -> u32 {
 impl LevenshteinNFA {
     pub fn levenshtein(max_distance: u8, transposition: bool) -> LevenshteinNFA {
         LevenshteinNFA {
-            max_distance: max_distance,
+            max_distance,
             damerau: transposition,
         }
     }
