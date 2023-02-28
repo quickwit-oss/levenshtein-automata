@@ -21,7 +21,7 @@ impl<I: Eq + Hash + Clone + Debug> Index<I> {
         if item_index == index_len {
             self.items.push(item.clone());
         }
-        item_index as u32
+        item_index
     }
 
     pub fn len(&self) -> u32 {

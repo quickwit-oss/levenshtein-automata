@@ -10,7 +10,7 @@ impl FullCharacteristicVector {
         if align == 0 {
             self.0[bucket_id] & mask
         } else {
-            let left = (self.0[bucket_id] >> align) as u32;
+            let left = self.0[bucket_id] >> align;
             let right = self.0[bucket_id + 1] << (32 - align) as u32;
             (left | right) & mask
         }
@@ -51,7 +51,7 @@ impl Alphabet {
                 (c, FullCharacteristicVector(bits))
             })
             .collect();
-        Alphabet { charset: charset }
+        Alphabet { charset }
     }
 }
 
@@ -66,22 +66,22 @@ mod tests {
         let mut it = alphabet.iter();
 
         {
-            let &(ref c, ref chi) = it.next().unwrap();
+            let (c, chi) = it.next().unwrap();
             assert_eq!(*c, 'a');
             assert_eq!(chi.0[0], 2u32);
         }
         {
-            let &(ref c, ref chi) = it.next().unwrap();
+            let (c, chi) = it.next().unwrap();
             assert_eq!(*c, 'h');
             assert_eq!(chi.0[0], 1u32);
         }
         {
-            let &(ref c, ref chi) = it.next().unwrap();
+            let (c, chi) = it.next().unwrap();
             assert_eq!(*c, 'p');
             assert_eq!(chi.0[0], 4u32 + 8u32);
         }
         {
-            let &(ref c, ref chi) = it.next().unwrap();
+            let (c, chi) = it.next().unwrap();
             assert_eq!(*c, 'y');
             assert_eq!(chi.0[0], 16u32);
         }
@@ -106,7 +106,7 @@ mod tests {
         let alphabet = Alphabet::for_query_chars(&query_chars[..]);
         let mut alphabet_it = alphabet.iter();
         {
-            let &(ref c, ref chi) = alphabet_it.next().unwrap();
+            let (c, chi) = alphabet_it.next().unwrap();
             assert_eq!(*c, 'a');
             assert_eq!(chi.shift_and_mask(0, 7), 7);
             assert_eq!(chi.shift_and_mask(28, 7), 3);
@@ -114,7 +114,7 @@ mod tests {
             assert_eq!(chi.shift_and_mask(28, 4095), 1 + 2 + 16 + 256);
         }
         {
-            let &(ref c, ref chi) = alphabet_it.next().unwrap();
+            let (c, chi) = alphabet_it.next().unwrap();
             assert_eq!(*c, 'b');
             assert_eq!(chi.shift_and_mask(0, 7), 0);
             assert_eq!(chi.shift_and_mask(28, 15), 4);
