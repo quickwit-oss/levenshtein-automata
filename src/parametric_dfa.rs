@@ -44,18 +44,20 @@ impl Transition {
 
 struct ParametricStateIndex {
     state_index: Vec<Option<u32>>,
-    state_queue: Vec<ParametricState>,
+    state_queue: Vec<(ParametricState, u8)>,
     num_offsets: usize,
+    num_distances: usize,
 }
 
 impl ParametricStateIndex {
-    fn new(query_len: usize, num_param_states: usize) -> ParametricStateIndex {
+    fn new(query_len: usize, num_param_states: usize, num_distances: usize) -> ParametricStateIndex {
         let num_offsets = query_len + 1;
-        let max_num_states = num_param_states * num_offsets;
+        let max_num_states = num_param_states * num_offsets * num_distances;
         ParametricStateIndex {
             state_index: vec![None; max_num_states],
             state_queue: Vec::with_capacity(100),
-            num_offsets: num_offsets,
+            num_offsets,
+            num_distances,
         }
     }
 
@@ -67,19 +69,21 @@ impl ParametricStateIndex {
         self.state_index.len()
     }
 
-    fn get_or_allocate(&mut self, parametric_state: ParametricState) -> u32 {
-        let bucket = (parametric_state.shape_id as usize) * self.num_offsets
-            + parametric_state.offset as usize;
+    fn get_or_allocate(&mut self, parametric_state: ParametricState, prefix_distance: u8) -> u32 {
+        let bucket = ((parametric_state.shape_id as usize) * self.num_offsets
+            + parametric_state.offset as usize)
+            * self.num_distances
+            + prefix_distance as usize;
         if let Some(state_id) = self.state_index[bucket] {
             return state_id;
         }
         let new_state = self.state_queue.len() as u32;
-        self.state_queue.push(parametric_state);
+        self.state_queue.push((parametric_state, prefix_distance));
         self.state_index[bucket] = Some(new_state);
         new_state
     }
 
-    fn get(&self, state_id: u32) -> ParametricState {
+    fn get(&self, state_id: u32) -> (ParametricState, u8) {
         self.state_queue[state_id as usize]
     }
 }
@@ -140,13 +144,36 @@ impl ParametricDFA {
         let query_len = query_chars.len();
         let alphabet = Alphabet::for_query_chars(&query_chars);
 
-        let mut parametric_state_index = ParametricStateIndex::new(query_len, self.num_states());
+        let track_prefix_distance = prefix && !use_applied_distance;
+        let num_distances = if track_prefix_distance {
+            self.max_distance as usize + 2
+        } else {
+            1
+        };
+        let mut parametric_state_index =
+            ParametricStateIndex::new(query_len, self.num_states(), num_distances);
         let max_num_states = parametric_state_index.max_num_states();
 
-        let dead_end_state_id = parametric_state_index.get_or_allocate(ParametricState::empty());
+        // Identical alignments can have different minimum prefix distances.
+        let get_or_allocate = |index: &mut ParametricStateIndex, state, prefix_distance: u8| {
+            let prefix_distance = if track_prefix_distance {
+                prefix_distance.min(self.distance(state, query_len).to_u8())
+            } else {
+                0
+            };
+            index.get_or_allocate(state, prefix_distance)
+        };
+        let dead_end_state_id = get_or_allocate(
+            &mut parametric_state_index,
+            ParametricState::empty(),
+            self.max_distance + 1,
+        );
         assert_eq!(dead_end_state_id, 0);
-        let initial_state_id =
-            parametric_state_index.get_or_allocate(ParametricDFA::initial_state());
+        let initial_state_id = get_or_allocate(
+            &mut parametric_state_index,
+            ParametricDFA::initial_state(),
+            self.max_distance + 1,
+        );
 
         let mut dfa_builder = Utf8DFABuilder::with_max_num_states(max_num_states);
         let mask = (1 << self.diameter) - 1;
@@ -155,9 +182,11 @@ impl ParametricDFA {
             if state_id == parametric_state_index.num_states() as u32 {
                 break;
             }
-            let state = parametric_state_index.get(state_id);
+            let (state, prefix_distance) = parametric_state_index.get(state_id);
             let distance = if use_applied_distance {
                 self.applied_distance(state)
+            } else if track_prefix_distance && prefix_distance <= self.max_distance {
+                Distance::Exact(prefix_distance)
             } else {
                 self.distance(state, query_len)
             };
@@ -166,14 +195,18 @@ impl ParametricDFA {
                 dfa_builder.add_state(state_id, distance, state_id);
             } else {
                 let default_successor = self.transition(state, 0u32).apply(state);
-                let default_successor_id =
-                    parametric_state_index.get_or_allocate(default_successor);
+                let default_successor_id = get_or_allocate(
+                    &mut parametric_state_index,
+                    default_successor,
+                    prefix_distance,
+                );
                 let mut state_builder =
                     dfa_builder.add_state(state_id, distance, default_successor_id);
                 for &(ref chr, ref characteristic_vec) in alphabet.iter() {
                     let chi = characteristic_vec.shift_and_mask(state.offset as usize, mask);
                     let dest_state: ParametricState = self.transition(state, chi).apply(state);
-                    let dest_state_id = parametric_state_index.get_or_allocate(dest_state);
+                    let dest_state_id =
+                        get_or_allocate(&mut parametric_state_index, dest_state, prefix_distance);
                     state_builder.add_transition(*chr, dest_state_id);
                 }
             }

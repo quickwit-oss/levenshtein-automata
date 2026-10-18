@@ -284,6 +284,20 @@ fn test_prefix() {
 }
 
 #[test]
+fn test_prefix_distance_keeps_best_match() {
+    for transpositions in [false, true] {
+        let builder = crate::LevenshteinAutomatonBuilder::new(2, transpositions);
+        let dfa = builder.build_prefix_dfa("cat");
+        // Deleting "ca" gives "t", a prefix of "tea".
+        assert_eq!(dfa.eval("tea"), Distance::Exact(2));
+        // Longer prefixes can improve the distance.
+        assert_eq!(dfa.eval("c"), Distance::Exact(2));
+        assert_eq!(dfa.eval("ca"), Distance::Exact(1));
+        assert_eq!(dfa.eval("cat"), Distance::Exact(0));
+    }
+}
+
+#[test]
 fn test_applied_distance() {
     let q: &str = "abcde";
     let nfa = LevenshteinNFA::levenshtein(1, true);
